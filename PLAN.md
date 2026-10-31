@@ -37,6 +37,8 @@ Status: plan agreed on 2026-10-31. Not yet implemented.
 | 18 | Entry flow | A pending entry holds the display name for 1 hour, matching the Stripe Checkout session expiry. Only paid entries can pick. Buy-back reactivates the same entry. Full refunds only before the Week 1 cut-off. |
 | 19 | Visibility | Public pages are home, entry, rules and privacy. Standings, everyone’s picks and the archive need sign-in with an entry in that competition. Private pages are `noindex`. |
 | 20 | Settlement | A result is accepted automatically when football-data.org shows the match as finished and FPL agrees. Each player can pick for the next week as soon as their own result is “through”. “Out” is provisional until the whole week settles, because of rule 6. |
+| 21 | Team crests | A club crest is shown beside every team name: pick buttons, history, everyone’s picks, standings and the WhatsApp images. The crests come from football-data.org and are stored in `public/crests/`, never hotlinked. If a crest file is missing, a neutral badge with the club’s initials is shown. Crests are trademarks, so check use with the club. |
+| 22 | Browser preview | `/preview` runs the player screens against a simulated 40-player competition in memory, with a toolbar to move time on. Development only, unless `ENABLE_PREVIEW=true`. |
 
 ---
 
@@ -125,6 +127,8 @@ The colours are sampled from `public/brand/logo-shield.png`. All of them live in
 | `surface` | `#FFFFFF` | Page background |
 | `text` | `#1A1A1A` | Body text |
 | `muted` | `#6B6B6B` | Used teams, “out” rows |
+| `subtle` | `#F7F4EE` | Card and panel backgrounds |
+| `line` | `#E3DED4` | Borders and dividers |
 
 Rules:
 
@@ -412,6 +416,7 @@ The owner’s standards are written for Swift. They are applied to TypeScript as
 ## 14. Open items
 
 - Permit or licence check under the Gambling Regulation Act 2024. The owner will report back.
+- Confirm with the club that showing Premier League club crests is acceptable.
 - Domain name. The owner will send it.
 - GitHub repository name and visibility. The owner will send them.
 - Move the accounts to `tramoreathleticsecretary@gmail.com`: Vercel, GitHub, Stripe, Resend, football-data.org, Neon, cron-job.org and the domain.

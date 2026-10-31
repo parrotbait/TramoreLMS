@@ -33,6 +33,9 @@ export default tseslint.config(
                 singleline: { delimiter: 'semi', requireLast: false },
             }],
             '@typescript-eslint/consistent-type-imports': 'error',
+            // Splitting “Week {n}” across three lines hurts readability and gains nothing.
+            '@stylistic/jsx-one-expression-per-line': 'off',
+            '@stylistic/indent': ['error', 4, { SwitchCase: 1, offsetTernaryExpressions: false }],
         },
     },
     {

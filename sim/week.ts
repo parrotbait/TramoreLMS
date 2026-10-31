@@ -71,80 +71,147 @@ export interface WeekLog {
     readonly autoPicks: readonly Pick[]
 }
 
+export interface WeekTimes {
+    readonly cutoffAt: Date
+    readonly pickAt: Date
+    readonly earlyAt: Date
+    readonly repickAt: Date
+    readonly lateAt: Date
+    readonly afterAt: Date
+}
+
+/**
+ * One week, run step by step. The CLI and the scenarios run every step at
+ * once (playWeek). The browser preview stops between steps.
+ */
+export class WeekTimeline {
+    readonly times: WeekTimes
+    private readonly competition: SimCompetition
+    private readonly driver: WeekDriver
+    private readonly fixtures: readonly Fixture[]
+    private readonly rejections: PickRejectionLog[] = []
+    private readonly autoPicks: Pick[] = []
+    private readonly buybackRejections: EntryId[]
+
+    /** Adds and opens the week, then applies withdrawals and buy-backs. */
+    constructor(competition: SimCompetition, driver: WeekDriver, previousAfterAt: Date | null) {
+        this.competition = competition
+        this.driver = driver
+
+        const weekNumber = driver.weekNumber
+        this.fixtures = competition.addWeek(weekNumber, driver.fixtures)
+        const kickoffs = this.fixtures.map((fixture) => {
+            return fixture.kickoffAt.getTime()
+        })
+        if (kickoffs.length === 0) {
+            throw new Error(`Week ${weekNumber} has no fixtures`)
+        }
+
+        const cutoffAt = competition.openWeek(weekNumber, new Date(Math.min(...kickoffs) - 6 * DAY_MS))
+        if (cutoffAt === null) {
+            throw new Error(`Week ${weekNumber} has no cut-off`)
+        }
+
+        const cutoffMs = cutoffAt.getTime()
+        const pickMs = Math.max((previousAfterAt?.getTime() ?? 0) + MINUTE_MS, cutoffMs - 2 * DAY_MS)
+        this.times = {
+            cutoffAt,
+            pickAt: new Date(pickMs),
+            earlyAt: new Date(pickMs + (cutoffMs - pickMs) / 2),
+            repickAt: new Date(cutoffMs - MINUTE_MS),
+            lateAt: new Date(cutoffMs + 30 * MINUTE_MS),
+            afterAt: new Date(Math.max(...kickoffs) + 7 * HOUR_MS),
+        }
+
+        for (const entryId of driver.withdrawals ?? []) {
+            competition.withdraw(entryId, weekNumber)
+        }
+
+        this.buybackRejections = (driver.buybacks ?? []).filter((entryId) => {
+            return competition.buyBack(entryId, this.times.pickAt) === 'buybackUnavailable'
+        })
+    }
+
+    get weekNumber(): number {
+        return this.driver.weekNumber
+    }
+
+    async collectPicks() {
+        this.submit(await this.driver.picks(this.competition, this.times.pickAt), this.times.pickAt)
+    }
+
+    postponeEarly() {
+        for (const fixtureId of this.driver.earlyPostponements?.(this.fixtures) ?? []) {
+            this.competition.postpone(fixtureId, this.times.earlyAt)
+        }
+    }
+
+    async collectRepicks() {
+        if (this.driver.repicks === undefined) {
+            return
+        }
+
+        this.submit(await this.driver.repicks(this.competition, this.times.repickAt), this.times.repickAt)
+    }
+
+    lock() {
+        this.autoPicks.push(...this.competition.lock(this.weekNumber, this.times.cutoffAt))
+    }
+
+    /** Results, overrides, then auto-assign again for players who became eligible late. */
+    async playResults() {
+        const { lateAt, afterAt } = this.times
+        const results = await this.driver.results(this.competition, this.competition.fixturesOf(this.weekNumber))
+        for (const [fixtureId, result] of results) {
+            applyResult(this.competition, fixtureId, result, lateAt, afterAt)
+        }
+
+        for (const [fixtureId, override] of this.driver.fixtureOverrides?.(this.fixtures) ?? new Map()) {
+            this.competition.overrideFixture(fixtureId, override)
+        }
+
+        for (const [entryId, outcome] of this.driver.pickOverrides ?? []) {
+            this.competition.overridePick(entryId, this.weekNumber, outcome)
+        }
+
+        await this.driver.afterResults?.(this.competition, afterAt)
+        this.autoPicks.push(...this.competition.lock(this.weekNumber, afterAt))
+    }
+
+    log(): WeekLog {
+        return {
+            weekNumber: this.weekNumber,
+            cutoffAt: this.times.cutoffAt,
+            afterAt: this.times.afterAt,
+            rejections: this.rejections,
+            buybackRejections: this.buybackRejections,
+            autoPicks: this.autoPicks,
+        }
+    }
+
+    private submit(requests: readonly PickRequest[], now: Date) {
+        for (const request of requests) {
+            const validation = this.competition.pick(request.entryId, this.weekNumber, request.teamId, now)
+            if (!validation.ok) {
+                this.rejections.push({ ...request, reason: validation.reason })
+            }
+        }
+    }
+}
+
 export async function playWeek(
     competition: SimCompetition,
     driver: WeekDriver,
     previousAfterAt: Date | null,
 ): Promise<WeekLog> {
-    const weekNumber = driver.weekNumber
-    const fixtures = competition.addWeek(weekNumber, driver.fixtures)
-    const kickoffs = fixtures.map((fixture) => {
-        return fixture.kickoffAt.getTime()
-    })
-    if (kickoffs.length === 0) {
-        throw new Error(`Week ${weekNumber} has no fixtures`)
-    }
+    const timeline = new WeekTimeline(competition, driver, previousAfterAt)
+    await timeline.collectPicks()
+    timeline.postponeEarly()
+    await timeline.collectRepicks()
+    timeline.lock()
+    await timeline.playResults()
 
-    const cutoffAt = competition.openWeek(weekNumber, new Date(Math.min(...kickoffs) - 6 * DAY_MS))
-    if (cutoffAt === null) {
-        throw new Error(`Week ${weekNumber} has no cut-off`)
-    }
-
-    const cutoffMs = cutoffAt.getTime()
-    const pickMs = Math.max((previousAfterAt?.getTime() ?? 0) + MINUTE_MS, cutoffMs - 2 * DAY_MS)
-    const earlyAt = new Date(pickMs + (cutoffMs - pickMs) / 2)
-    const repickAt = new Date(cutoffMs - MINUTE_MS)
-    const lateAt = new Date(cutoffMs + 30 * MINUTE_MS)
-    const afterAt = new Date(Math.max(...kickoffs) + 7 * HOUR_MS)
-    const pickAt = new Date(pickMs)
-
-    for (const entryId of driver.withdrawals ?? []) {
-        competition.withdraw(entryId, weekNumber)
-    }
-
-    const buybackRejections = (driver.buybacks ?? []).filter((entryId) => {
-        return competition.buyBack(entryId, pickAt) === 'buybackUnavailable'
-    })
-
-    const rejections: PickRejectionLog[] = []
-    const submit = (requests: readonly PickRequest[], now: Date) => {
-        for (const request of requests) {
-            const validation = competition.pick(request.entryId, weekNumber, request.teamId, now)
-            if (!validation.ok) {
-                rejections.push({ ...request, reason: validation.reason })
-            }
-        }
-    }
-
-    submit(await driver.picks(competition, pickAt), pickAt)
-
-    for (const fixtureId of driver.earlyPostponements?.(fixtures) ?? []) {
-        competition.postpone(fixtureId, earlyAt)
-    }
-
-    if (driver.repicks !== undefined) {
-        submit(await driver.repicks(competition, repickAt), repickAt)
-    }
-
-    const autoPicks = [...competition.lock(weekNumber, cutoffAt)]
-
-    const results = await driver.results(competition, competition.fixturesOf(weekNumber))
-    for (const [fixtureId, result] of results) {
-        applyResult(competition, fixtureId, result, lateAt, afterAt)
-    }
-
-    for (const [fixtureId, override] of driver.fixtureOverrides?.(fixtures) ?? new Map()) {
-        competition.overrideFixture(fixtureId, override)
-    }
-
-    for (const [entryId, outcome] of driver.pickOverrides ?? []) {
-        competition.overridePick(entryId, weekNumber, outcome)
-    }
-
-    await driver.afterResults?.(competition, afterAt)
-    autoPicks.push(...competition.lock(weekNumber, afterAt))
-
-    return { weekNumber, cutoffAt, afterAt, rejections, buybackRejections, autoPicks }
+    return timeline.log()
 }
 
 function applyResult(

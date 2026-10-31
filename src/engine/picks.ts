@@ -2,7 +2,7 @@
 //
 // Pick validation and auto-assign (rules 2 and 4, Decision 8).
 
-import { isPostponedBefore } from './fixtures'
+import { isPostponedBy } from './fixtures'
 import { computeStandings, usedTeamIds } from './standings'
 import type { Standings } from './standings'
 import type {
@@ -86,7 +86,7 @@ export function availableTeams(
     const playing = new Set<TeamId>()
 
     for (const fixture of state.fixtures) {
-        if (fixture.week !== weekNumber || isPostponedBefore(fixture, asOf)) {
+        if (fixture.week !== weekNumber || isPostponedBy(fixture, asOf)) {
             continue
         }
 

@@ -10,7 +10,7 @@ export type FixtureResolution =
     | { readonly kind: 'result'; readonly home: number; readonly away: number }
     /** Postponed or cancelled after the cut-off, or abandoned without a result. Pickers go through. */
     | { readonly kind: 'void' }
-    /** Postponed before the cut-off. The fixture is not part of the week. */
+    /** Postponed at or before the cut-off. The fixture is not part of the week. */
     | { readonly kind: 'removed' }
 
 export type TeamResult =
@@ -21,12 +21,16 @@ export type TeamResult =
     | 'removed'
     | 'pending'
 
-export function isPostponedBefore(fixture: Fixture, instant: Date): boolean {
+/**
+ * True once the postponement is known at `instant`: recorded at or before it.
+ * A postponement at exactly the cut-off therefore counts as before the cut-off.
+ */
+export function isPostponedBy(fixture: Fixture, instant: Date): boolean {
     if (fixture.state.kind !== 'postponed') {
         return false
     }
 
-    return fixture.state.at.getTime() < instant.getTime()
+    return fixture.state.at.getTime() <= instant.getTime()
 }
 
 export function fixtureForTeam(
@@ -122,7 +126,7 @@ function resolveDirect(fixture: Fixture, cutoffAt: Date | null): FixtureResoluti
 }
 
 function postponedResolution(fixture: Fixture, cutoffAt: Date | null): FixtureResolution {
-    if (cutoffAt === null || isPostponedBefore(fixture, cutoffAt)) {
+    if (cutoffAt === null || isPostponedBy(fixture, cutoffAt)) {
         return { kind: 'removed' }
     }
 

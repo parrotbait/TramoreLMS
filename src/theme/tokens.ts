@@ -10,6 +10,8 @@ export const colours = {
     onMaroon: '#FFFFFF',
     onGold: '#1A1A1A',
     surface: '#FFFFFF',
+    subtle: '#F7F4EE',
+    line: '#E3DED4',
     text: '#1A1A1A',
     muted: '#6B6B6B',
 } as const
@@ -19,3 +21,16 @@ export const brand = {
     fundraisingLine: 'In aid of Tramore Athletic',
     logoPath: '/brand/logo-shield.png',
 } as const
+
+/** CSS custom properties for the root element. globals.css maps them into Tailwind. */
+export const themeVariables: Readonly<Record<string, string>> = {
+    '--colour-maroon': colours.maroon,
+    '--colour-gold': colours.gold,
+    '--colour-on-maroon': colours.onMaroon,
+    '--colour-on-gold': colours.onGold,
+    '--colour-surface': colours.surface,
+    '--colour-subtle': colours.subtle,
+    '--colour-line': colours.line,
+    '--colour-text': colours.text,
+    '--colour-muted': colours.muted,
+}

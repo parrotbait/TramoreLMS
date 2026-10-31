@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+/*
+ * Colour values live only in src/theme/tokens.ts. The root layout sets them
+ * as CSS variables, and this maps them to Tailwind names (bg-maroon, text-muted …).
+ */
+@theme inline {
+    --color-maroon: var(--colour-maroon);
+    --color-gold: var(--colour-gold);
+    --color-on-maroon: var(--colour-on-maroon);
+    --color-on-gold: var(--colour-on-gold);
+    --color-surface: var(--colour-surface);
+    --color-subtle: var(--colour-subtle);
+    --color-line: var(--colour-line);
+    --color-ink: var(--colour-text);
+    --color-muted: var(--colour-muted);
+}
+
+body {
+    background: var(--colour-surface);
+    color: var(--colour-text);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-tap-highlight-color: transparent;
+}

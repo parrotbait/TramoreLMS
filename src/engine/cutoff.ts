@@ -1,7 +1,7 @@
 // Created by Claude driven by Eddie Long on 2026-10-31.
 
 import type { Fixture } from './types'
-import { isPostponedBefore } from './fixtures'
+import { isPostponedBy } from './fixtures'
 
 const ONE_HOUR_MS = 60 * 60 * 1000
 
@@ -15,7 +15,7 @@ const ONE_HOUR_MS = 60 * 60 * 1000
 export function computeCutoff(weekFixtures: readonly Fixture[], asOf: Date): Date | null {
     const kickoffs = weekFixtures
         .filter((fixture) => {
-            return !isPostponedBefore(fixture, asOf)
+            return !isPostponedBy(fixture, asOf)
         })
         .map((fixture) => {
             return fixture.kickoffAt.getTime()

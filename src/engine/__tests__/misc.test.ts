@@ -72,6 +72,23 @@ describe('resolveWeekFixtures', () => {
         const resolutions = resolveWeekFixtures(state.weeks[0]!, state.fixtures)
         expect([...resolutions.values()]).toEqual([{ kind: 'removed' }])
     })
+
+    it('treats a postponement at exactly the cut-off as before the cut-off', () => {
+        const state = buildState({ weeks: [{ fixtures: [['Arsenal', 'Chelsea']] }], entries: [] })
+        const atCutoff: Fixture = { ...state.fixtures[0]!, state: { kind: 'postponed', at: cutoffOf(1) } }
+        const resolutions = resolveWeekFixtures(state.weeks[0]!, [atCutoff])
+        expect(resolutions.get(atCutoff.id)).toEqual({ kind: 'removed' })
+    })
+
+    it('treats a postponement 1 ms after the cut-off as after the cut-off', () => {
+        const state = buildState({ weeks: [{ fixtures: [['Arsenal', 'Chelsea']] }], entries: [] })
+        const justAfter: Fixture = {
+            ...state.fixtures[0]!,
+            state: { kind: 'postponed', at: new Date(cutoffOf(1).getTime() + 1) },
+        }
+        const resolutions = resolveWeekFixtures(state.weeks[0]!, [justAfter])
+        expect(resolutions.get(justAfter.id)).toEqual({ kind: 'void' })
+    })
 })
 
 describe('splitPrize (rule 6)', () => {

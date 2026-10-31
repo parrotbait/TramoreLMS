@@ -77,8 +77,8 @@ async function fetchFixtures(): Promise<number> {
         return 1
     }
 
-    const count = await downloadSeason(token)
-    console.log(`Saved ${count} fixtures to sim/fixtures/.`)
+    const summary = await downloadSeason(token)
+    console.log(`Saved ${summary.fixtures} fixtures to sim/fixtures/ and ${summary.crests} crests to public/crests/.`)
     return 0
 }
 

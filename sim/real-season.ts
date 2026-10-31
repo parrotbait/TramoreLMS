@@ -5,20 +5,21 @@
 // The live site will have its own feed adapter (build step 4).
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
 
 import { z } from 'zod'
 
 import type { Team } from '@/engine'
 import { canonicalTeamName } from '@/feeds/team-names'
+import { crestDirectory } from '@/lib/crests'
 
 import type { Season, SeasonWeek } from './season'
 import { slug } from './season'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const SEASON = 2026
-const cacheFile = fileURLToPath(new URL(`./fixtures/pl-${SEASON}.json`, import.meta.url))
+/** Relative to the project root. pnpm scripts and the Next.js server both run from there. */
+const cacheFile = join(process.cwd(), 'sim', 'fixtures', `pl-${SEASON}.json`)
 
 const cachedMatchSchema = z.object({
     matchday: z.number().int(),
@@ -37,8 +38,8 @@ const apiSchema = z.object({
     matches: z.array(z.object({
         matchday: z.number().int().nullable(),
         utcDate: z.string(),
-        homeTeam: z.object({ name: z.string().nullable() }),
-        awayTeam: z.object({ name: z.string().nullable() }),
+        homeTeam: z.object({ name: z.string().nullable(), crest: z.string().nullable().optional() }),
+        awayTeam: z.object({ name: z.string().nullable(), crest: z.string().nullable().optional() }),
     })),
 })
 
@@ -46,8 +47,13 @@ export function hasCachedSeason(): boolean {
     return existsSync(cacheFile)
 }
 
-/** Downloads the fixture list and saves it. Needs FOOTBALL_DATA_TOKEN. */
-export async function downloadSeason(token: string): Promise<number> {
+export interface DownloadSummary {
+    readonly fixtures: number
+    readonly crests: number
+}
+
+/** Downloads the fixture list and every club crest, and saves them. Needs FOOTBALL_DATA_TOKEN. */
+export async function downloadSeason(token: string): Promise<DownloadSummary> {
     const response = await fetch(`https://api.football-data.org/v4/competitions/PL/matches?season=${SEASON}`, {
         headers: { 'X-Auth-Token': token },
     })
@@ -70,7 +76,41 @@ export async function downloadSeason(token: string): Promise<number> {
     mkdirSync(dirname(cacheFile), { recursive: true })
     writeFileSync(cacheFile, `${JSON.stringify({ season: SEASON, downloadedAt: new Date().toISOString(), matches }, null, 2)}\n`)
 
-    return matches.length
+    const crestUrls = new Map<string, string>()
+    for (const match of parsed.matches) {
+        for (const team of [match.homeTeam, match.awayTeam]) {
+            if (team.name !== null && team.crest !== null && team.crest !== undefined) {
+                crestUrls.set(slug(canonicalTeamName(team.name)), team.crest)
+            }
+        }
+    }
+
+    return { fixtures: matches.length, crests: await downloadCrests(crestUrls) }
+}
+
+/** Saves each crest as public/crests/<team-id>.<ext>. The site serves them itself. */
+async function downloadCrests(crestUrls: ReadonlyMap<string, string>): Promise<number> {
+    mkdirSync(crestDirectory, { recursive: true })
+    let saved = 0
+
+    for (const [teamId, url] of crestUrls) {
+        const extension = /\.(png|svg|webp)(\?|$)/i.exec(url)?.[1]?.toLowerCase()
+        if (extension === undefined) {
+            console.warn(`Skipping crest for ${teamId}: unexpected file type in ${url}`)
+            continue
+        }
+
+        const response = await fetch(url)
+        if (!response.ok) {
+            console.warn(`Skipping crest for ${teamId}: ${response.status} ${response.statusText}`)
+            continue
+        }
+
+        writeFileSync(join(crestDirectory, `${teamId}.${extension}`), Buffer.from(await response.arrayBuffer()))
+        saved += 1
+    }
+
+    return saved
 }
 
 /**

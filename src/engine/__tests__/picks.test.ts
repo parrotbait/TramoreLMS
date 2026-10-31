@@ -134,6 +134,21 @@ describe('Postponed before the cut-off: pick again (Decision 7, case 1)', () => 
         const valid = withPicks(state, [{ entryId: 'ann', week: 1, teamId: 'Everton', source: 'player' }])
         expect(pickNeedsReplacing(valid, now, 'ann', 1)).toBe(false)
     })
+
+    it('counts a postponement recorded at this very instant', () => {
+        const base = buildState({
+            weeks: [{ fixtures: [['Arsenal', 'Chelsea'], ['Everton', 'Fulham']] }],
+            entries: ['ann'],
+            picks: { ann: ['Arsenal'] },
+        })
+        const postponedNow = {
+            ...base,
+            fixtures: base.fixtures.map((fixture, index) => {
+                return index === 0 ? { ...fixture, state: { kind: 'postponed' as const, at: now } } : fixture
+            }),
+        }
+        expect(pickNeedsReplacing(postponedNow, now, 'ann', 1)).toBe(true)
+    })
 })
 
 describe('autoAssign: rule 4 (Decision 8)', () => {
