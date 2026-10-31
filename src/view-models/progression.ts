@@ -18,6 +18,7 @@ export type ProgressionCell =
         readonly auto: boolean
         readonly reinstated: boolean
         readonly override: boolean
+        /** The first pick after buying back in, which is always Week 2. */
         readonly boughtBack: boolean
         readonly matchLabel: string | null
     }
@@ -101,7 +102,7 @@ export function buildProgression(context: ViewContext): ProgressionModel {
                     return { kind: 'hidden' }
                 }
 
-                return cellOf(context, entryWeek, week.number === 1 && boughtBack.has(standing.entryId))
+                return cellOf(context, entryWeek, week.number === 2 && boughtBack.has(standing.entryId))
             }),
         })
     }

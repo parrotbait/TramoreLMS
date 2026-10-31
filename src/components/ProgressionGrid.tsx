@@ -181,7 +181,14 @@ export function ProgressionGrid({ model, highlightEntryId }: ProgressionGridProp
                     <span aria-hidden="true" className="inline-block h-3 w-3 rounded bg-maroon/10 ring-1 ring-maroon/40" />
                     Went out
                 </span>
-                <span><strong className="text-ink">*</strong> Auto-assigned</span>
+                <span className="inline-flex items-center gap-1.5">
+                    <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-muted" />
+                    No pick, auto-assigned
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                    <span aria-hidden="true" className="inline-block h-3 w-3 rounded ring-2 ring-gold" />
+                    Bought back in
+                </span>
                 <span>Numbers under each week: players still in</span>
             </p>
         </div>
@@ -213,14 +220,19 @@ function PlayerRow({ row, weeks, isHighlighted, selection, onSelect }: {
     readonly onSelect: (selection: Selection) => void
 }) {
     const nameClass = isHighlighted
-        ? 'bg-subtle font-bold shadow-[inset_4px_0_0_var(--colour-gold)]'
+        ? 'bg-gold font-bold text-on-gold'
         : 'bg-surface font-medium'
+    const cellClass = isHighlighted ? 'bg-gold/15 p-0.5' : 'p-0.5'
+    const showYouTag = isHighlighted && row.name !== 'You'
 
     return (
-        <tr className={isHighlighted ? 'bg-subtle' : undefined}>
+        <tr>
             <th scope="row" className={`sticky left-0 z-10 max-w-36 truncate px-3 text-left ${nameClass}`}>
                 {row.isWinner ? '🏆 ' : ''}
                 {row.name}
+                {showYouTag
+                    ? <span className="ml-1.5 rounded bg-surface px-1 py-px text-[10px] font-bold uppercase text-ink">You</span>
+                    : null}
             </th>
             {row.cells.map((cell, index) => {
                 const week = weeks[index]
@@ -229,7 +241,7 @@ function PlayerRow({ row, weeks, isHighlighted, selection, onSelect }: {
                 }
 
                 return (
-                    <td key={week.number} className="p-0.5">
+                    <td key={week.number} className={cellClass}>
                         <Cell
                             cell={cell}
                             label={describe(row, week, cell)}
@@ -262,13 +274,17 @@ function Cell({ cell, label, isSelected, onSelect }: {
     }
 
     const isOut = cell.outcome === 'out' && !(cell.kind === 'pick' && cell.reinstated)
+    const isBoughtBack = cell.kind === 'pick' && cell.boughtBack
+    const isAuto = cell.kind === 'pick' && cell.auto
+    const isPass = cell.kind === 'pick' && cell.teamName === 'Pass'
     const tone = isOut
         ? 'bg-maroon/10 ring-1 ring-maroon/40'
-        : cell.outcome === 'pending'
-            ? 'border border-dashed border-line'
-            : ''
+        : isBoughtBack
+            ? 'ring-2 ring-gold'
+            : cell.outcome === 'pending'
+                ? 'border border-dashed border-line'
+                : ''
     const selected = isSelected ? 'outline-2 outline-maroon' : ''
-    const isPass = cell.kind === 'pick' && cell.teamName === 'Pass'
 
     return (
         <button
@@ -283,8 +299,8 @@ function Cell({ cell, label, isSelected, onSelect }: {
             {cell.kind === 'pick' && !isPass
                 ? <TeamCrest name={cell.teamName} src={cell.crestUrl} size={24} />
                 : <span className="text-[10px] font-semibold text-muted">{isPass ? 'Pass' : '—'}</span>}
-            {cell.kind === 'pick' && cell.auto
-                ? <span aria-hidden="true" className="absolute right-0.5 top-0 text-xs font-bold leading-none text-ink">*</span>
+            {isAuto
+                ? <span aria-hidden="true" className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-muted" />
                 : null}
         </button>
     )
@@ -316,7 +332,7 @@ function describe(row: ProgressionRow, week: ProgressionWeek, cell: ProgressionC
     const parts = [prefix, team, cell.reinstated ? 'Everyone went out, so all stayed in' : outcomeText(cell.outcome)]
 
     if (cell.auto) {
-        parts.push('Auto-assigned')
+        parts.push('No pick, auto-assigned')
     }
 
     if (cell.override) {
@@ -324,7 +340,7 @@ function describe(row: ProgressionRow, week: ProgressionWeek, cell: ProgressionC
     }
 
     if (cell.boughtBack) {
-        parts.push('Bought back in')
+        parts.push('First pick after buying back in')
     }
 
     return parts.join(' · ')

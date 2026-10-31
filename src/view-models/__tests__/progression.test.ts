@@ -100,17 +100,19 @@ describe('buildProgression', () => {
         expect(cellsOf(model, 'cat')[1]).toEqual({ kind: 'empty' })
     })
 
-    it('counts a buy-back as still in after Week 1', () => {
+    it('counts a buy-back as still in after Week 1, and marks the Week 2 pick', () => {
+        const withWeekTwoPick = withPicks(withAutoPick, [{ entryId: 'cat', week: 2, teamId: 'Fulham', source: 'player' }])
         const boughtBack: GameState = {
-            ...withAutoPick,
-            entries: withAutoPick.entries.map((entry) => {
+            ...withWeekTwoPick,
+            entries: withWeekTwoPick.entries.map((entry) => {
                 return entry.id === 'cat' ? { ...entry, boughtBack: true } : entry
             }),
         }
-        const result = buildProgression(contextOf(boughtBack, beforeCutoff(2)))
+        const result = buildProgression(contextOf(boughtBack, afterWeek(2)))
 
         expect(result.weeks[0]?.survivorsAfter).toBe(4)
-        expect(cellsOf(result, 'cat')[0]).toMatchObject({ outcome: 'out', boughtBack: true })
+        expect(cellsOf(result, 'cat')[0]).toMatchObject({ outcome: 'out', boughtBack: false })
+        expect(cellsOf(result, 'cat')[1]).toMatchObject({ kind: 'pick', teamName: 'Fulham', boughtBack: true })
         expect(result.sections).toHaveLength(1)
     })
 
