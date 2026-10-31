@@ -1,0 +1,12 @@
+name: Abandoned match with no result
+rule: Rule 5 / Decision 7, case 3
+description: With no confirmed result once the rest of the week is done, an abandoned match counts as cancelled.
+entries: [ann, bob, cat]
+weeks:
+  - fixtures:
+      - Arsenal v Chelsea A
+      - Everton v Fulham 2-2
+    picks: { ann: Arsenal, bob: Chelsea, cat: Everton }
+    expect:
+      in: [ann, bob]
+      out: [cat]

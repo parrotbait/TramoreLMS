@@ -319,17 +319,37 @@ The in/out status must not depend on colour alone. Use ✓ and ✗ as well.
 
 ## 11. Simulator
 
+Built in step 3. Lives in `sim/`. It uses the real rules engine.
+
 ```
-pnpm sim --players 30 --start 11 --seed 42
-pnpm sim --players 30 --start 11 --interactive
-pnpm sim --scenario sim/scenarios/postponed-after-cutoff.yaml
-pnpm sim ... --synthetic        # made-up 20-team season, works offline
-pnpm sim ... --png out/         # render the WhatsApp images for each week
+pnpm sim --players 30 --start 11 --seed 42      # random results, reproducible
+pnpm sim --players 30 --start 11 --interactive  # you type each result
+pnpm sim --scenario sim/scenarios/x.yaml        # run one scenario file
+pnpm sim --fetch                                # download the real 2026/27 fixtures
+pnpm sim ... --synthetic                        # made-up 20-team season, works offline
+pnpm sim ... --verbose                          # every player and result
+pnpm sim ... --png out/                         # WhatsApp images (build step 11, not yet)
 ```
 
-- **Random mode:** about 45% home wins, 25% draws and 30% away wins. Picks are random but valid. A seed gives the same season every time.
-- **Interactive mode:** enter `2-1`, `d`, `p` (postponed) or `a` (abandoned), or press Enter for a random result. You can also enter `override fixture …` and `override pick …`.
-- **Scenario YAML:** sets up players, fixtures, picks, results and overrides, and lists the expected statuses per week and the expected winner. `pnpm test` runs every scenario.
+- **Each week follows a realistic timeline:**
+  - The week opens and the cut-off is fixed.
+  - Players pick.
+  - Early postponements land.
+  - Players re-pick.
+  - Auto-assign runs at the cut-off.
+  - Late postponements land.
+  - Results come in through `reconcile`.
+  - Overrides are applied.
+  - Auto-assign runs again, for players who became eligible late.
+- **Random mode:** results follow team strength (`sim/strength.ts`). That gives about 45% home wins, 25% draws and 30% away wins between even sides. Players strongly prefer favourites. About 5% forget to pick each week. A seed gives the same season every time.
+- **Interactive mode:** enter `2-1`, `d`, `p` (postponed) or `a` (abandoned), or press Enter for a random result. After the results, apply `fixture <team> <2-1|void>` or `pick <player> through|out`. Answers can be piped in from a file.
+- **Scenario YAML:** a season written as fixture lines (`Arsenal v Chelsea 1-0`, `P`, `PL`, `A`, `2-1|2-2`, `=> void`), picks, re-picks, buy-backs, withdrawals and overrides. Each week lists the outcome you expect. Corrections after the last week cover reopening a week. `pnpm test` runs every file in `sim/scenarios/`.
+- **Soak test (`sim/soak.test.ts`):** 30 random seasons with different seeds, player counts and start weeks. After each season it checks:
+  - there's always a winner
+  - an early finish has exactly one survivor
+  - nobody used a team twice
+  - every auto-pick was the first available team alphabetically
+  - a reinstated week means everyone still in went out together
 
 Initial scenarios:
 

@@ -1,0 +1,12 @@
+name: Fixture override
+rule: Decision 9
+description: The admin corrects a wrong score. Everyone who picked that match is affected.
+entries: [ann, bob, cat]
+weeks:
+  - fixtures:
+      - Arsenal v Chelsea 0-1 => 2-1
+      - Everton v Fulham 1-0
+    picks: { ann: Arsenal, bob: Arsenal, cat: Chelsea }
+    expect:
+      in: [ann, bob]
+      out: [cat]

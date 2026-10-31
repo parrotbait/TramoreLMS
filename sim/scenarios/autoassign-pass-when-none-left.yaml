@@ -1,0 +1,20 @@
+name: Auto-pass when no team is left
+rule: Rule 4 / Decision 8
+description: A player who has used every team playing this week gets a pass, and goes through.
+entries: [ann, bob]
+weeks:
+  - fixtures:
+      - Arsenal v Chelsea 1-0
+      - Everton v Fulham 1-0
+    picks: { ann: Arsenal, bob: Everton }
+  - fixtures:
+      - Chelsea v Everton 0-1
+      - Arsenal v Fulham 2-0
+    picks: { ann: Everton, bob: Arsenal }
+    expect:
+      in: [ann, bob]
+  - fixtures:
+      - Arsenal v Everton 0-0
+    expect:
+      auto: { ann: null, bob: null }
+      in: [ann, bob]

@@ -1,0 +1,12 @@
+name: Abandoned match with a confirmed result
+rule: Rule 5 / Decision 7, case 3
+description: When the league confirms a result for an abandoned match, that result counts.
+entries: [ann, bob]
+weeks:
+  - fixtures:
+      - Arsenal v Chelsea A => 0-1
+      - Everton v Fulham 1-0
+    picks: { ann: Arsenal, bob: Everton }
+    expect:
+      out: [ann]
+      in: [bob]

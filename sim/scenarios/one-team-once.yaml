@@ -1,0 +1,20 @@
+name: One team once
+rule: Rule 2
+description: A team you have used is rejected. With no valid pick, auto-assign takes the first unused team.
+entries: [ann, bob]
+weeks:
+  - fixtures:
+      - Arsenal v Chelsea 2-0
+      - Everton v Fulham 1-0
+    picks: { ann: Arsenal, bob: Everton }
+    expect:
+      in: [ann, bob]
+  - fixtures:
+      - Arsenal v Everton 1-0
+      - Chelsea v Fulham 0-0
+    picks: { ann: Arsenal, bob: Arsenal }
+    expect:
+      rejected: { ann: teamUsed }
+      auto: { ann: Chelsea }
+      out: [ann]
+      winners: [bob]

@@ -1,0 +1,25 @@
+name: Buy-back after Week 1 only
+rule: Rule 3 / Decision 4b
+description: A Week 1 loser can buy back until the Week 2 cut-off. Nobody can buy back after that.
+entries: [ann, bob, cat, dan]
+weeks:
+  - fixtures:
+      - Arsenal v Chelsea 1-0
+      - Everton v Fulham 1-0
+    picks: { ann: Arsenal, bob: Everton, cat: Chelsea, dan: Arsenal }
+    expect:
+      out: [cat]
+      buybackAvailable: [cat]
+  - fixtures:
+      - Arsenal v Everton 0-1
+      - Chelsea v Fulham 2-0
+    picks: { ann: Everton, bob: Chelsea, dan: Fulham }
+    expect:
+      out: [cat, dan]
+      in: [ann, bob]
+  - fixtures:
+      - Arsenal v Fulham
+      - Chelsea v Everton
+    buyBack: [cat, dan]
+    expect:
+      buybackRejected: [cat, dan]

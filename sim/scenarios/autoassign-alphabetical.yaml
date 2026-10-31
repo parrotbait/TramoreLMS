@@ -1,0 +1,14 @@
+name: Auto-assign is alphabetical
+rule: Rule 4 / Decision 8
+description: No pick at the cut-off means the first team alphabetically. Bournemouth sorts after Arsenal.
+entries: [ann, bob]
+weeks:
+  - fixtures:
+      - Chelsea v Arsenal 0-1
+      - Bournemouth v Fulham 1-0
+      - Everton v Brentford 1-1
+    picks: { bob: Everton }
+    expect:
+      auto: { ann: Arsenal }
+      in: [ann]
+      out: [bob]

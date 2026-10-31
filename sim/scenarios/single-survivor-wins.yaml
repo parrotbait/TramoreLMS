@@ -1,0 +1,18 @@
+name: Single survivor wins straight away
+rule: Rule 6 / Decision 6
+description: The competition ends as soon as one player is left. No more picks.
+entries: [ann, bob, cat]
+weeks:
+  - fixtures:
+      - Arsenal v Chelsea 1-0
+      - Everton v Fulham 1-0
+    picks: { ann: Arsenal, bob: Everton, cat: Chelsea }
+  - fixtures:
+      - Arsenal v Everton 0-1
+      - Chelsea v Fulham 0-0
+    picks: { ann: Everton, bob: Chelsea }
+    expect:
+      winner: [ann]
+      out: [bob, cat]
+      outcome: won
+      winners: [ann]

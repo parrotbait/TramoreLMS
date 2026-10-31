@@ -1,0 +1,19 @@
+name: Postponed after the cut-off means through
+rule: Rule 5 / Decision 7, case 2
+description: A late postponement puts the picker through, and the team counts as used.
+entries: [ann, bob]
+weeks:
+  - fixtures:
+      - Arsenal v Chelsea PL
+      - Everton v Fulham 2-0
+    picks: { ann: Arsenal, bob: Fulham }
+    expect:
+      in: [ann]
+      out: [bob]
+  - fixtures:
+      - Arsenal v Everton
+      - Chelsea v Fulham
+    picks: { ann: Arsenal }
+    expect:
+      rejected: { ann: teamUsed }
+      winners: [ann]

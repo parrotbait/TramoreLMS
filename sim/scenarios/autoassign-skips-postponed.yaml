@@ -1,0 +1,13 @@
+name: Auto-assign skips postponed teams
+rule: Rule 4 / Decision 8
+description: Teams whose match was postponed before the cut-off are not available.
+entries: [ann, bob]
+weeks:
+  - fixtures:
+      - Arsenal v Chelsea P
+      - Bournemouth v Everton 2-0
+    picks: { bob: Everton }
+    expect:
+      auto: { ann: Bournemouth }
+      in: [ann]
+      out: [bob]

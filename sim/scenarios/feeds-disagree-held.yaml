@@ -1,0 +1,24 @@
+name: Feeds disagree, so the result is held
+rule: Decisions 3 and 20
+description: >
+  football-data.org and FPL disagree on one score. The other match has no FPL
+  result at all. Both are held for the admin, who confirms them.
+entries: [ann, bob]
+weeks:
+  - fixtures:
+      - Arsenal v Chelsea 2-1|2-2
+      - Everton v Fulham 1-0|-
+    picks: { ann: Arsenal, bob: Everton }
+    expect:
+      held: [Arsenal v Chelsea, Everton v Fulham]
+      outcome: running
+corrections:
+  - week: 1
+    fixture: Arsenal v Chelsea
+    result: 2-1
+  - week: 1
+    fixture: Everton v Fulham
+    result: 1-0
+expectAfterCorrections:
+  in: [ann, bob]
+  stillIn: 2

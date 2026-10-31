@@ -1,0 +1,19 @@
+name: Survivors share the prize after matchday 38
+rule: Rule 6 / Decision 6
+description: Here Week 2 stands in for PL matchday 38. Everyone still in after it shares the prize.
+entries: [ann, bob, cat]
+finalWeek: 2
+prize: 300
+weeks:
+  - fixtures:
+      - Arsenal v Chelsea 1-0
+      - Everton v Fulham 1-0
+    picks: { ann: Arsenal, bob: Everton, cat: Arsenal }
+  - fixtures:
+      - Arsenal v Everton 2-2
+      - Chelsea v Fulham 1-0
+    picks: { ann: Chelsea, bob: Chelsea, cat: Everton }
+    expect:
+      out: [cat]
+      outcome: won
+      winners: [ann, bob]

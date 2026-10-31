@@ -8,8 +8,10 @@ import { fixtureForTeam, resolveWeekFixtures, teamResult } from './fixtures'
 import type {
     Entry,
     EntryId,
+    Fixture,
     GameState,
     Pick,
+    PickOverride,
     TeamId,
     Verdict,
     Week,
@@ -70,6 +72,36 @@ interface MutableStanding {
 
 type WeekResult = Omit<EntryWeek, 'reinstated'> & { readonly entryId: EntryId }
 
+/** Lookups built once per call, so standings stay fast with hundreds of players. */
+interface GameIndex {
+    readonly picks: ReadonlyMap<string, Pick>
+    readonly pickOverrides: ReadonlyMap<string, PickOverride>
+    readonly fixturesByWeek: ReadonlyMap<number, readonly Fixture[]>
+}
+
+function entryWeekKey(entryId: EntryId, weekNumber: number): string {
+    return `${weekNumber}:${entryId}`
+}
+
+function buildIndex(state: GameState): GameIndex {
+    const fixturesByWeek = new Map<number, Fixture[]>()
+    for (const fixture of state.fixtures) {
+        const list = fixturesByWeek.get(fixture.week) ?? []
+        list.push(fixture)
+        fixturesByWeek.set(fixture.week, list)
+    }
+
+    return {
+        picks: new Map(state.picks.map((pick) => {
+            return [entryWeekKey(pick.entryId, pick.week), pick] as const
+        })),
+        pickOverrides: new Map(state.pickOverrides.map((override) => {
+            return [entryWeekKey(override.entryId, override.week), override] as const
+        })),
+        fixturesByWeek,
+    }
+}
+
 /** Teams an entry has used in weeks before `beforeWeek`. */
 export function usedTeamIds(weeks: readonly EntryWeek[], beforeWeek: number): ReadonlySet<TeamId> {
     const used = new Set<TeamId>()
@@ -103,6 +135,7 @@ export function computeStandings(state: GameState, now: Date): Standings {
             return left.number - right.number
         })
 
+    const index = buildIndex(state)
     let alive: EntryId[] = state.entries.map((entry) => {
         return entry.id
     })
@@ -114,7 +147,7 @@ export function computeStandings(state: GameState, now: Date): Standings {
             return { entries: records, lastSettledWeek, outcome: { kind: 'noPlayers' } }
         }
 
-        const results = playWeek(state, week, alive, records, now)
+        const results = playWeek(index, week, alive, records, now)
         const isSettled = results.every((result) => {
             return result.outcome !== 'pending'
         })
@@ -166,31 +199,25 @@ function removeWithdrawn(
 }
 
 function playWeek(
-    state: GameState,
+    index: GameIndex,
     week: Week,
     alive: readonly EntryId[],
     records: ReadonlyMap<EntryId, MutableStanding>,
     now: Date,
 ): WeekResult[] {
     const isLocked = week.cutoffAt !== null && now.getTime() >= week.cutoffAt.getTime()
-    const weekFixtures = state.fixtures.filter((fixture) => {
-        return fixture.week === week.number
-    })
+    const weekFixtures = index.fixturesByWeek.get(week.number) ?? []
     const resolutions = resolveWeekFixtures(week, weekFixtures)
 
     return alive.map((entryId): WeekResult => {
-        const pick = state.picks.find((candidate) => {
-            return candidate.entryId === entryId && candidate.week === week.number
-        })
+        const pick = index.picks.get(entryWeekKey(entryId, week.number))
         const base = { entryId, week: week.number, pick }
 
         if (!isLocked) {
             return { ...base, outcome: 'pending', reason: 'awaitingCutoff' }
         }
 
-        const override = state.pickOverrides.find((candidate) => {
-            return candidate.entryId === entryId && candidate.week === week.number
-        })
+        const override = index.pickOverrides.get(entryWeekKey(entryId, week.number))
         if (override !== undefined) {
             return { ...base, outcome: override.outcome, reason: 'pickOverride' }
         }

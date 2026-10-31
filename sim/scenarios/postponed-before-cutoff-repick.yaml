@@ -1,0 +1,15 @@
+name: Postponed before the cut-off means pick again
+rule: Rule 5 / Decision 7, case 1
+description: Players who picked a team in the postponed match must pick again. If they don't, auto-assign applies.
+entries: [ann, bob, cat]
+weeks:
+  - fixtures:
+      - Arsenal v Chelsea P
+      - Everton v Fulham 2-1
+      - Bournemouth v Brentford 0-0
+    picks: { ann: Arsenal, bob: Chelsea, cat: Fulham }
+    repicks: { bob: Everton }
+    expect:
+      auto: { ann: Bournemouth }
+      in: [bob]
+      out: [ann, cat]

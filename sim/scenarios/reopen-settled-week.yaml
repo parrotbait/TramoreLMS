@@ -1,0 +1,28 @@
+name: Reopen a settled week
+rule: Decision 9
+description: >
+  The feed got Arsenal v Chelsea wrong and Ann went out. Bob won after Week 2.
+  The admin corrects Week 1. Ann is back in, gets auto-assigned for Week 2,
+  and the competition carries on.
+entries: [ann, bob, cat]
+weeks:
+  - fixtures:
+      - Arsenal v Chelsea 0-1
+      - Everton v Fulham 1-0
+    picks: { ann: Arsenal, bob: Everton, cat: Everton }
+    expect:
+      out: [ann]
+  - fixtures:
+      - Arsenal v Everton 1-0
+      - Chelsea v Fulham 1-0
+    picks: { bob: Arsenal, cat: Fulham }
+    expect:
+      winners: [bob]
+corrections:
+  - week: 1
+    fixture: Arsenal v Chelsea
+    result: 1-0
+expectAfterCorrections:
+  in: [ann, bob]
+  out: [cat]
+  outcome: running

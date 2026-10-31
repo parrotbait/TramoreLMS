@@ -1,0 +1,19 @@
+name: Draw is out
+rule: Rule 1 / Decision 5
+description: A draw puts both pickers out. A lone Week 1 survivor only wins once buy-back closes.
+entries: [ann, bob, cat]
+weeks:
+  - fixtures:
+      - Arsenal v Chelsea 1-1
+      - Everton v Fulham 2-0
+    picks: { ann: Arsenal, bob: Chelsea, cat: Everton }
+    expect:
+      out: [ann, bob]
+      in: [cat]
+      outcome: running
+  - fixtures:
+      - Fulham v Chelsea
+      - Arsenal v Everton
+    expect:
+      winner: [cat]
+      winners: [cat]

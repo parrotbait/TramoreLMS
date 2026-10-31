@@ -1,0 +1,20 @@
+name: Buy-back keeps the Week 1 team used
+rule: Rule 3 / Decision 4b
+description: After buying back, the player is in for Week 2, but cannot pick their Week 1 team again.
+entries: [ann, bob, cat]
+weeks:
+  - fixtures:
+      - Arsenal v Chelsea 1-0
+      - Everton v Fulham 1-0
+    picks: { ann: Arsenal, bob: Everton, cat: Chelsea }
+    expect:
+      out: [cat]
+  - fixtures:
+      - Arsenal v Everton 0-1
+      - Chelsea v Fulham 2-0
+    buyBack: [cat]
+    picks: { ann: Everton, bob: Chelsea, cat: Chelsea }
+    repicks: { cat: Everton }
+    expect:
+      rejected: { cat: teamUsed }
+      in: [ann, bob, cat]

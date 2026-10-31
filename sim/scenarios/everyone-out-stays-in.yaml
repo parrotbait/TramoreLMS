@@ -1,0 +1,28 @@
+name: Everyone out together stays in
+rule: Rule 6 / Decision 6
+description: When everyone still in goes out in the same week, they all stay in. Their teams stay used.
+entries: [ann, bob, cat]
+weeks:
+  - fixtures:
+      - Arsenal v Chelsea 1-0
+      - Everton v Fulham 1-0
+    picks: { ann: Arsenal, bob: Everton, cat: Chelsea }
+    expect:
+      out: [cat]
+  - fixtures:
+      - Arsenal v Everton 1-1
+      - Chelsea v Fulham 2-0
+    picks: { ann: Everton, bob: Fulham }
+    expect:
+      in: [ann, bob]
+      out: [cat]
+      stillIn: 2
+  - fixtures:
+      - Fulham v Arsenal 2-0
+      - Chelsea v Everton 0-1
+    picks: { ann: Everton, bob: Chelsea }
+    repicks: { ann: Fulham }
+    expect:
+      rejected: { ann: teamUsed }
+      out: [bob]
+      winners: [ann]

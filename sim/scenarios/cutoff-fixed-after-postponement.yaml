@@ -1,0 +1,14 @@
+name: Cut-off stays fixed after a postponement
+rule: Decision 12
+description: >
+  The cut-off is set when the week opens, from the 12:30 kick-off. That match
+  is then postponed. The cut-off does not move to 1 hour before the 14:30 match.
+entries: [ann]
+weeks:
+  - fixtures:
+      - Arsenal v Chelsea P
+      - Everton v Fulham 1-0
+    expect:
+      cutoff: 2026-11-07T11:30:00Z
+      auto: { ann: Everton }
+      in: [ann]

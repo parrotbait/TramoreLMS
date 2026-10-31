@@ -1,0 +1,20 @@
+name: Pick override for a holiday
+rule: Decision 9
+description: Ann is on holiday and gets auto-assigned a team that loses. The admin puts only Ann through. Her team stays used.
+entries: [ann, bob, cat]
+weeks:
+  - fixtures:
+      - Arsenal v Chelsea 0-1
+      - Everton v Fulham 1-0
+    picks: { bob: Arsenal, cat: Chelsea }
+    pickOverrides: { ann: through }
+    expect:
+      auto: { ann: Arsenal }
+      in: [ann, cat]
+      out: [bob]
+  - fixtures:
+      - Arsenal v Everton
+      - Chelsea v Fulham
+    picks: { ann: Arsenal }
+    expect:
+      rejected: { ann: teamUsed }
