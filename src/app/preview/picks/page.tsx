@@ -21,5 +21,9 @@ export default async function PreviewPicksPage({ searchParams }: PreviewPicksPag
         return { weekNumber: number, href: `/preview/picks?week=${number}` }
     })
 
-    return <PicksReveal model={buildPicksReveal(viewContextOf(session), weekNumber)} weekLinks={weekLinks} />
+    return (
+        <div className="mx-auto max-w-md">
+            <PicksReveal model={buildPicksReveal(viewContextOf(session), weekNumber)} weekLinks={weekLinks} />
+        </div>
+    )
 }

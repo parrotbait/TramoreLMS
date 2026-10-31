@@ -14,11 +14,13 @@ export default async function PreviewPickPage() {
     const model = buildPickScreen(viewContextOf(session), YOU, session.timeline.weekNumber)
 
     return (
-        <PickScreen
-            model={model}
-            pickAction={previewPick}
-            buybackAction={previewBuyBack}
-            buybackFeeLabel={formatEuro(BUYBACK_CENTS)}
-        />
+        <div className="mx-auto max-w-md">
+            <PickScreen
+                model={model}
+                pickAction={previewPick}
+                buybackAction={previewBuyBack}
+                buybackFeeLabel={formatEuro(BUYBACK_CENTS)}
+            />
+        </div>
     )
 }

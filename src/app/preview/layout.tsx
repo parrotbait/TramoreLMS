@@ -29,7 +29,7 @@ export default function PreviewLayout({ children }: { readonly children: ReactNo
         <>
             <SiteHeader homeHref="/preview" links={LINKS} />
             <PreviewBar />
-            <main className="mx-auto max-w-md px-4 py-4 pb-28">{children}</main>
+            <main className="mx-auto max-w-5xl px-4 py-4 pb-28">{children}</main>
         </>
     )
 }

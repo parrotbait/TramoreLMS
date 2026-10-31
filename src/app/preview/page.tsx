@@ -17,7 +17,7 @@ export default async function PreviewHomePage() {
     const cutoffAt = session.timeline.times.cutoffAt
 
     return (
-        <div className="space-y-4">
+        <div className="mx-auto max-w-md space-y-4">
             <section className="rounded-2xl border border-line bg-surface p-4">
                 <h2 className="text-xl font-bold">Pick one team. Survive the week.</h2>
                 <p className="mt-1 text-sm text-muted">
