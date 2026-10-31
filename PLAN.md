@@ -25,7 +25,7 @@ Status: plan agreed on 2026-10-31. Not yet implemented.
 | 10 | Admin access | Magic link plus an email allowlist in the `ADMIN_EMAILS` environment variable. Admin links last 15 minutes and work once. Admin sessions last 7 days. No 2FA. |
 | 10b | Multi-season | Every season is a new competition. Past competitions are archived read-only. Each competition has its own team list. |
 | 10c | Handover | All accounts belong to `tramoreathleticsecretary@gmail.com`, not a personal address. `RUNBOOK.md` documents operations. |
-| 10d | Branding | “In aid of Tramore Athletic” appears everywhere. The club colours and logo are in one theme file (see section 3a). The “€X raised” figure is shown only if an admin setting turns it on. It is off by default. |
+| 10d | Branding | “Tramore Athletic Fundraiser” appears everywhere. The club colours and logo are in one theme file (see section 3a). The “€X raised” figure is shown only if an admin setting turns it on. It is off by default. |
 | 11 | Reminders | One automatic email, 24 hours before the cut-off, to active players who have not picked. The admin gets a “Copy reminder” button that produces a WhatsApp message with counts only and no names. |
 | 12 | Cut-off | The cut-off is 1 hour before the earliest kick-off, calculated when the week opens. After that it is fixed and only an admin override moves it. The server enforces it. Times are shown in Europe/Dublin time. |
 | 12b | Pick visibility | Before the cut-off, players see only their own pick. After the cut-off, everyone’s picks are visible read-only. Past weeks can always be browsed. |
@@ -271,7 +271,7 @@ Feed adapters map teams by ID, never by name. The full official names are our ow
 
 | Route | Who can see it | Content |
 |---|---|---|
-| `/` | Public | What this is, “In aid of Tramore Athletic”, the next cut-off, the prize, Enter button, “€X raised” if the setting is on |
+| `/` | Public | What this is, “Tramore Athletic Fundraiser”, the next cut-off, the prize, Enter button, “€X raised” if the setting is on |
 | `/enter` | Public | Entry form, then Stripe Checkout |
 | `/rules`, `/privacy` | Public | Rendered from `content/*.md` |
 | `/signin` | Public | “Send me my link” |
@@ -307,7 +307,7 @@ After Week 1, the message adds this line: “Out in Week 1? Buy back in for €5
 
 **Status image** (PNG, 1080 pixels wide):
 
-- Header: logo, title, “In aid of Tramore Athletic”, the week and matchday
+- Header: logo, title, “Tramore Athletic Fundraiser”, the week and matchday
 - “18 of 42 still standing”
 - Still in: names with ✓, in two or three columns
 - Out this week: names with ✗ and the result

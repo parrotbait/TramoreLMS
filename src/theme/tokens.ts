@@ -18,7 +18,7 @@ export const colours = {
 
 export const brand = {
     clubName: 'Tramore Athletic',
-    fundraisingLine: 'In aid of Tramore Athletic',
+    fundraisingLine: 'Tramore Athletic Fundraiser',
     logoPath: '/brand/logo-shield.png',
 } as const
 

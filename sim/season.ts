@@ -4,10 +4,13 @@
 // offline, and player names.
 
 import type { Team } from '@/engine'
+import { slug } from '@/lib/slug'
 import { weekStart } from '@/engine/testing/builder'
 
 import type { FixtureSeed } from './competition'
 import type { Random } from './random'
+
+export { slug }
 
 const HOUR_MS = 60 * 60 * 1000
 
@@ -121,16 +124,6 @@ export function playerNames(count: number, random: Random): readonly string[] {
     }
 
     return names
-}
-
-export function slug(name: string): string {
-    return name
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase()
-        .replace(/&/g, 'and')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '')
 }
 
 function roundRobin(ids: readonly string[]): (readonly [string, string])[][] {

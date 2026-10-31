@@ -15,10 +15,16 @@
         "test": "vitest run",
         "test:watch": "vitest",
         "sim": "node --import tsx sim/cli.ts",
-        "feed:check": "node --import tsx scripts/check-feeds.ts"
+        "feed:check": "node --import tsx scripts/check-feeds.ts",
+        "db:generate": "drizzle-kit generate",
+        "db:migrate": "node --import tsx scripts/migrate.ts",
+        "db:studio": "drizzle-kit studio",
+        "db:seed": "node --import tsx scripts/seed.ts"
     },
     "dependencies": {
+        "drizzle-orm": "^0.45.4",
         "next": "^16.4.3",
+        "postgres": "^4.0.0",
         "react": "^19.3.1",
         "react-dom": "^19.3.1",
         "yaml": "^2.9.1",
@@ -31,6 +37,7 @@
         "@types/node": "^26.6.6",
         "@types/react": "^19.3.0",
         "@types/react-dom": "^19.3.0",
+        "drizzle-kit": "^0.31.11",
         "eslint": "^10.14.0",
         "postcss": "^8.5.32",
         "tailwindcss": "^4.3.3",

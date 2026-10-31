@@ -22,6 +22,8 @@ const SEASON = 2026
 const cacheFile = join(process.cwd(), 'sim', 'fixtures', `pl-${SEASON}.json`)
 
 const cachedMatchSchema = z.object({
+    /** The football-data.org match id. Missing from caches made before it was saved. */
+    externalId: z.number().int().optional(),
     matchday: z.number().int(),
     utcDate: z.string(),
     home: z.string(),
@@ -33,6 +35,13 @@ const cacheSchema = z.object({
     downloadedAt: z.string(),
     matches: z.array(cachedMatchSchema),
 })
+
+export type CachedMatch = z.infer<typeof cachedMatchSchema>
+
+/** The cached matches as saved, for the database seed. */
+export function loadCachedMatches(): readonly CachedMatch[] {
+    return cacheSchema.parse(JSON.parse(readFileSync(cacheFile, 'utf8'))).matches
+}
 
 export function hasCachedSeason(): boolean {
     return existsSync(cacheFile)
@@ -52,7 +61,13 @@ export async function downloadSeason(token: string): Promise<DownloadSummary> {
             return []
         }
 
-        return [{ matchday, utcDate: match.kickoffAt.toISOString(), home: match.home.name, away: match.away.name }]
+        return [{
+            externalId: match.externalId,
+            matchday,
+            utcDate: match.kickoffAt.toISOString(),
+            home: match.home.name,
+            away: match.away.name,
+        }]
     })
 
     mkdirSync(dirname(cacheFile), { recursive: true })
