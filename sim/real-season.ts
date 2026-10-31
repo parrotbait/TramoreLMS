@@ -10,7 +10,7 @@ import { dirname, join } from 'node:path'
 import { z } from 'zod'
 
 import type { Team } from '@/engine'
-import { canonicalTeamName } from '@/feeds/team-names'
+import { fetchFootballData } from '@/feeds/football-data'
 import { crestDirectory } from '@/lib/crests'
 
 import type { Season, SeasonWeek } from './season'
@@ -34,15 +34,6 @@ const cacheSchema = z.object({
     matches: z.array(cachedMatchSchema),
 })
 
-const apiSchema = z.object({
-    matches: z.array(z.object({
-        matchday: z.number().int().nullable(),
-        utcDate: z.string(),
-        homeTeam: z.object({ name: z.string().nullable(), crest: z.string().nullable().optional() }),
-        awayTeam: z.object({ name: z.string().nullable(), crest: z.string().nullable().optional() }),
-    })),
-})
-
 export function hasCachedSeason(): boolean {
     return existsSync(cacheFile)
 }
@@ -54,33 +45,24 @@ export interface DownloadSummary {
 
 /** Downloads the fixture list and every club crest, and saves them. Needs FOOTBALL_DATA_TOKEN. */
 export async function downloadSeason(token: string): Promise<DownloadSummary> {
-    const response = await fetch(`https://api.football-data.org/v4/competitions/PL/matches?season=${SEASON}`, {
-        headers: { 'X-Auth-Token': token },
-    })
-    if (!response.ok) {
-        throw new Error(`football-data.org returned ${response.status} ${response.statusText}`)
-    }
-
-    const parsed = apiSchema.parse(await response.json())
-    const matches = parsed.matches.flatMap((match) => {
+    const feed = await fetchFootballData(token, SEASON)
+    const matches = feed.flatMap((match) => {
         const { matchday } = match
-        const home = match.homeTeam.name
-        const away = match.awayTeam.name
-        if (matchday === null || home === null || away === null) {
+        if (matchday === null) {
             return []
         }
 
-        return [{ matchday, utcDate: match.utcDate, home: canonicalTeamName(home), away: canonicalTeamName(away) }]
+        return [{ matchday, utcDate: match.kickoffAt.toISOString(), home: match.home.name, away: match.away.name }]
     })
 
     mkdirSync(dirname(cacheFile), { recursive: true })
     writeFileSync(cacheFile, `${JSON.stringify({ season: SEASON, downloadedAt: new Date().toISOString(), matches }, null, 2)}\n`)
 
     const crestUrls = new Map<string, string>()
-    for (const match of parsed.matches) {
-        for (const team of [match.homeTeam, match.awayTeam]) {
-            if (team.name !== null && team.crest !== null && team.crest !== undefined) {
-                crestUrls.set(slug(canonicalTeamName(team.name)), team.crest)
+    for (const match of feed) {
+        for (const team of [match.home, match.away]) {
+            if (team.crestUrl !== null) {
+                crestUrls.set(slug(team.name), team.crestUrl)
             }
         }
     }

@@ -14,7 +14,8 @@
         "typecheck": "tsc --noEmit",
         "test": "vitest run",
         "test:watch": "vitest",
-        "sim": "node --import tsx sim/cli.ts"
+        "sim": "node --import tsx sim/cli.ts",
+        "feed:check": "node --import tsx scripts/check-feeds.ts"
     },
     "dependencies": {
         "next": "^16.4.3",
