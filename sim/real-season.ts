@@ -1,50 +1,38 @@
 // Created by Claude driven by Eddie Long on 2026-10-31.
 //
-// The real 2026/27 Premier League fixture list, downloaded once from
-// football-data.org and cached in sim/fixtures/. Only the simulator uses it.
-// The live site will have its own feed adapter (build step 4).
+// Command-line only: downloads the 2026/27 fixture list and club crests from
+// football-data.org, and reads the cache from disk. The website must not
+// import this file. It uses season-cache.ts with an imported JSON file.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 
-import { z } from 'zod'
-
-import type { Team } from '@/engine'
 import { fetchFootballData } from '@/feeds/football-data'
-import { crestDirectory } from '@/lib/crests'
+import { slug } from '@/lib/slug'
 
-import type { Season, SeasonWeek } from './season'
-import { slug } from './season'
+import type { Season } from './season'
+import { matchesFromCache, seasonFromCache } from './season-cache'
+import type { CachedMatch } from './season-cache'
 
-const DAY_MS = 24 * 60 * 60 * 1000
 const SEASON = 2026
-/** Relative to the project root. pnpm scripts and the Next.js server both run from there. */
-const cacheFile = join(process.cwd(), 'sim', 'fixtures', `pl-${SEASON}.json`)
+const projectRoot = process.cwd()
+const cacheFile = join(projectRoot, 'sim', 'fixtures', `pl-${SEASON}.json`)
+const crestDirectory = join(projectRoot, 'public', 'crests')
+const crestManifestFile = join(projectRoot, 'src', 'lib', 'crest-manifest.json')
 
-const cachedMatchSchema = z.object({
-    /** The football-data.org match id. Missing from caches made before it was saved. */
-    externalId: z.number().int().optional(),
-    matchday: z.number().int(),
-    utcDate: z.string(),
-    home: z.string(),
-    away: z.string(),
-})
-
-const cacheSchema = z.object({
-    season: z.number(),
-    downloadedAt: z.string(),
-    matches: z.array(cachedMatchSchema),
-})
-
-export type CachedMatch = z.infer<typeof cachedMatchSchema>
-
-/** The cached matches as saved, for the database seed. */
-export function loadCachedMatches(): readonly CachedMatch[] {
-    return cacheSchema.parse(JSON.parse(readFileSync(cacheFile, 'utf8'))).matches
-}
+export type { CachedMatch }
 
 export function hasCachedSeason(): boolean {
     return existsSync(cacheFile)
+}
+
+export function loadCachedSeason(): Season {
+    return seasonFromCache(JSON.parse(readFileSync(cacheFile, 'utf8')))
+}
+
+/** The cached matches as saved, for the database seed. */
+export function loadCachedMatches(): readonly CachedMatch[] {
+    return matchesFromCache(JSON.parse(readFileSync(cacheFile, 'utf8')))
 }
 
 export interface DownloadSummary {
@@ -70,7 +58,7 @@ export async function downloadSeason(token: string): Promise<DownloadSummary> {
         }]
     })
 
-    mkdirSync(dirname(cacheFile), { recursive: true })
+    mkdirSync(join(projectRoot, 'sim', 'fixtures'), { recursive: true })
     writeFileSync(cacheFile, `${JSON.stringify({ season: SEASON, downloadedAt: new Date().toISOString(), matches }, null, 2)}\n`)
 
     const crestUrls = new Map<string, string>()
@@ -85,68 +73,36 @@ export async function downloadSeason(token: string): Promise<DownloadSummary> {
     return { fixtures: matches.length, crests: await downloadCrests(crestUrls) }
 }
 
-/** Saves each crest as public/crests/<team-id>.<ext>. The site serves them itself. */
+/**
+ * Saves each crest as public/crests/<team-slug>.<ext>, then writes the
+ * manifest the website imports (src/lib/crest-manifest.json).
+ */
 async function downloadCrests(crestUrls: ReadonlyMap<string, string>): Promise<number> {
     mkdirSync(crestDirectory, { recursive: true })
-    let saved = 0
+    const manifest: Record<string, string> = {}
 
-    for (const [teamId, url] of crestUrls) {
+    for (const [teamSlug, url] of crestUrls) {
         const extension = /\.(png|svg|webp)(\?|$)/i.exec(url)?.[1]?.toLowerCase()
         if (extension === undefined) {
-            console.warn(`Skipping crest for ${teamId}: unexpected file type in ${url}`)
+            console.warn(`Skipping crest for ${teamSlug}: unexpected file type in ${url}`)
             continue
         }
 
         const response = await fetch(url)
         if (!response.ok) {
-            console.warn(`Skipping crest for ${teamId}: ${response.status} ${response.statusText}`)
+            console.warn(`Skipping crest for ${teamSlug}: ${response.status} ${response.statusText}`)
             continue
         }
 
-        writeFileSync(join(crestDirectory, `${teamId}.${extension}`), Buffer.from(await response.arrayBuffer()))
-        saved += 1
+        const fileName = `${teamSlug}.${extension}`
+        writeFileSync(join(crestDirectory, fileName), Buffer.from(await response.arrayBuffer()))
+        manifest[teamSlug] = `/crests/${fileName}`
     }
 
-    return saved
-}
-
-/**
- * Loads the cached season. A match rearranged to more than 4 days after the
- * start of its matchday is left out, as it would be postponed in real life.
- */
-export function loadCachedSeason(): Season {
-    const cache = cacheSchema.parse(JSON.parse(readFileSync(cacheFile, 'utf8')))
-    const names = new Set(cache.matches.flatMap((match) => {
-        return [match.home, match.away]
+    const sorted = Object.fromEntries(Object.entries(manifest).sort(([left], [right]) => {
+        return left.localeCompare(right)
     }))
-    const teams: Team[] = [...names].sort().map((name) => {
-        return { id: slug(name), fullName: name }
-    })
+    writeFileSync(crestManifestFile, `${JSON.stringify(sorted, null, 4)}\n`)
 
-    const matchdays: SeasonWeek[] = []
-    for (let plMatchday = 1; plMatchday <= 38; plMatchday += 1) {
-        const matches = cache.matches.filter((match) => {
-            return match.matchday === plMatchday
-        })
-        const firstKickoff = Math.min(...matches.map((match) => {
-            return Date.parse(match.utcDate)
-        }))
-
-        matchdays.push({
-            plMatchday,
-            fixtures: matches
-                .filter((match) => {
-                    return Date.parse(match.utcDate) - firstKickoff <= 4 * DAY_MS
-                })
-                .map((match) => {
-                    return {
-                        homeTeamId: slug(match.home),
-                        awayTeamId: slug(match.away),
-                        kickoffAt: new Date(match.utcDate),
-                    }
-                }),
-        })
-    }
-
-    return { teams, matchdays }
+    return Object.keys(manifest).length
 }

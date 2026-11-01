@@ -31,4 +31,18 @@ describe('Source hygiene', () => {
 
         expect(offenders).toEqual([])
     })
+
+    it('keeps website code off the file system', () => {
+        // On Vercel, dynamic file paths make the bundler trace the whole project,
+        // and public/ files are not in the server function at all.
+        const websiteFiles = sourceFiles('src').filter((path) => {
+            return !path.includes('__tests__')
+        })
+        const offenders = websiteFiles.filter((path) => {
+            const source = readFileSync(path, 'utf8')
+            return source.includes('from \'node:fs\'') || source.includes('/real-season')
+        })
+
+        expect(offenders).toEqual([])
+    })
 })

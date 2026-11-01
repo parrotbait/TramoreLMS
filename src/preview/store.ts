@@ -9,15 +9,16 @@
 //   settled  → results are in
 
 import type { PickValidation } from '@/engine'
-import { loadCrestIndex } from '@/lib/crests'
+import { crestUrlOf } from '@/lib/crests'
 import type { ViewContext } from '@/view-models/context'
 
 import { SimCompetition } from '../../sim/competition'
 import { Random } from '../../sim/random'
 import { randomDriver } from '../../sim/random-driver'
-import { hasCachedSeason, loadCachedSeason } from '../../sim/real-season'
-import { playerNames, syntheticSeason } from '../../sim/season'
+import cachedSeasonJson from '../../sim/fixtures/pl-2026.json'
+import { playerNames } from '../../sim/season'
 import type { Season } from '../../sim/season'
+import { seasonFromCache } from '../../sim/season-cache'
 import { WeekTimeline } from '../../sim/week'
 import type { WeekDriver } from '../../sim/week'
 
@@ -62,8 +63,6 @@ export function finalWeekOf(): number {
 }
 
 export function viewContextOf(session: PreviewSession): ViewContext {
-    const crests = loadCrestIndex()
-
     return {
         state: session.competition.state,
         standings: session.competition.standings(session.now),
@@ -75,7 +74,7 @@ export function viewContextOf(session: PreviewSession): ViewContext {
             return START_MATCHDAY + weekNumber - 1
         },
         crestOf: (teamId) => {
-            return crests.get(teamId) ?? null
+            return crestUrlOf(teamId)
         },
     }
 }
@@ -153,7 +152,7 @@ export async function playToEnd(session: PreviewSession) {
 }
 
 async function createSession(seed: number): Promise<PreviewSession> {
-    const season = hasCachedSeason() ? loadCachedSeason() : syntheticSeason(START_MATCHDAY)
+    const season = seasonFromCache(cachedSeasonJson)
     const random = new Random(seed)
     const competition = new SimCompetition(season.teams, [YOU, ...playerNames(PLAYERS - 1, random)], finalWeekOf())
     const firstWeek = await openWeek(competition, season, random, 1, null)
