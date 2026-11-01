@@ -15,6 +15,13 @@
       "when": 1793484411580,
       "tag": "0001_alert_key",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793561479524,
+      "tag": "0002_paid_entry_triggers",
+      "breakpoints": true
     }
   ]
 }
