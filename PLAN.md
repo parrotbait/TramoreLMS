@@ -417,11 +417,13 @@ The owner’s standards are written for Swift. They are applied to TypeScript as
 
 - Permit or licence check under the Gambling Regulation Act 2024. The owner will report back.
 - Confirm with the club that showing Premier League club crests is acceptable.
-- Domain name. The owner will send it.
-- GitHub repository name and visibility. The owner will send them.
+- Email sending: the club Gmail through SMTP for now, or a bought domain with Resend. Players cannot be emailed from a `vercel.app` address through Resend.
 - Move the accounts to `tramoreathleticsecretary@gmail.com`: Vercel, GitHub, Stripe, Resend, football-data.org, Neon, cron-job.org and the domain.
 - Final design of the WhatsApp images.
 
 Done:
+
+- Site address: `https://tramorelastmanstanding.vercel.app` (Vercel Hobby, production domain). Use it for `SITE_URL`, the cron-job.org job (`/api/cron/tick`) and the Stripe webhook.
+- Repository: `github.com/parrotbait/TramoreLMS`, private.
 
 - Club colours and logo. See section 3a.
