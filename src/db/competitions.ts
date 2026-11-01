@@ -14,6 +14,7 @@ export interface CompetitionSettings {
     readonly entryFeeCents?: number
     readonly buybackFeeCents?: number
     readonly prizeCents?: number
+    readonly status?: 'draft' | 'open'
 }
 
 export async function createCompetition(
@@ -30,6 +31,7 @@ export async function createCompetition(
             ...(settings.entryFeeCents === undefined ? {} : { entryFeeCents: settings.entryFeeCents }),
             ...(settings.buybackFeeCents === undefined ? {} : { buybackFeeCents: settings.buybackFeeCents }),
             ...(settings.prizeCents === undefined ? {} : { prizeCents: settings.prizeCents }),
+            ...(settings.status === undefined ? {} : { status: settings.status, entriesOpen: settings.status === 'open' }),
         }).returning({ id: competitions.id })
         if (competition === undefined) {
             throw new Error('Could not create the competition.')

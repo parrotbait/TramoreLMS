@@ -21,6 +21,8 @@ import type { Season } from '../../sim/season'
 import { WeekTimeline } from '../../sim/week'
 import type { WeekDriver } from '../../sim/week'
 
+export { isPreviewEnabled } from './enabled'
+
 export const YOU = 'you'
 
 const PLAYERS = 40
@@ -44,10 +46,6 @@ interface PreviewSession {
 }
 
 const globalStore = globalThis as typeof globalThis & { lmsPreview?: Promise<PreviewSession> }
-
-export function isPreviewEnabled(): boolean {
-    return process.env.NODE_ENV !== 'production' || process.env['ENABLE_PREVIEW'] === 'true'
-}
 
 export async function getPreview(): Promise<PreviewSession> {
     globalStore.lmsPreview ??= createSession(Math.floor(Math.random() * 1_000_000))

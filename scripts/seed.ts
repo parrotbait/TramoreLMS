@@ -4,6 +4,7 @@
 //
 //   pnpm db:seed --start 11              competition only
 //   pnpm db:seed --start 11 --players 40 plus 40 fake paid players
+//   pnpm db:seed ... --status open       open for entries, so the tick runs
 //
 // Fixtures come from football-data.org when it can be reached, otherwise
 // from the cached sim/fixtures file. Refuses to run against a database that
@@ -32,6 +33,7 @@ const { values } = parseArgs({
         'start': { type: 'string', default: '11' },
         'players': { type: 'string', default: '0' },
         'name': { type: 'string' },
+        'status': { type: 'string', default: 'draft' },
         'allow-remote': { type: 'boolean', default: false },
     },
 })
@@ -53,13 +55,19 @@ async function main(): Promise<number> {
     const plan = planCompetition(matches, startMatchday)
     const name = values.name ?? `Last Man Standing ${SEASON}/${String(SEASON + 1).slice(2)}`
 
+    const status = values.status
+    if (status !== 'draft' && status !== 'open') {
+        console.error('--status must be draft or open.')
+        return 1
+    }
+
     const db = getDatabase()
-    const competitionId = await createCompetition(db, { name, season: SEASON, startMatchday }, plan)
+    const competitionId = await createCompetition(db, { name, season: SEASON, startMatchday, status }, plan)
     if (playerCount > 0) {
         await addFakePlayers(db, competitionId, playerCount)
     }
 
-    console.log(`Created “${name}” (${competitionId})`)
+    console.log(`Created “${name}” (${competitionId}), status ${status}`)
     console.log(`  ${plan.teams.length} teams, ${plan.weeks.length} weeks from PL Matchday ${startMatchday}, ${plan.fixtures.length} fixtures`)
     if (playerCount > 0) {
         console.log(`  ${playerCount} fake paid players`)

@@ -5,7 +5,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 
-import { isPreviewEnabled } from '@/preview/store'
+import { isPreviewEnabled } from '@/preview/enabled'
 import { brand } from '@/theme/tokens'
 
 export default function HomePage() {

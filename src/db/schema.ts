@@ -339,6 +339,8 @@ export const alerts = pgTable('alert', {
         return competitions.id
     }, { onDelete: 'cascade' }),
     kind: text('kind').notNull(),
+    /** Identifies the problem, so the tick never raises the same open alert twice. */
+    key: text('key').notNull(),
     fixtureId: uuid('fixture_id').references(() => {
         return fixtures.id
     }, { onDelete: 'cascade' }),
@@ -348,7 +350,7 @@ export const alerts = pgTable('alert', {
 }, (table) => {
     return [
         uniqueIndex('alert_open_key')
-            .on(table.competitionId, table.kind, table.fixtureId)
+            .on(table.competitionId, table.key)
             .where(sql`${table.resolvedAt} is null`),
     ]
 })

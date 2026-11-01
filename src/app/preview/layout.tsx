@@ -7,7 +7,7 @@ import { notFound } from 'next/navigation'
 import type { ReactNode } from 'react'
 
 import { SiteHeader } from '@/components/SiteHeader'
-import { isPreviewEnabled } from '@/preview/store'
+import { isPreviewEnabled } from '@/preview/enabled'
 
 import { PreviewBar } from './PreviewBar'
 
