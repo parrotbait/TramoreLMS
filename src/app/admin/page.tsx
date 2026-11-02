@@ -19,7 +19,7 @@ export default async function AdminPage() {
     return (
         <AuthCard title="Admin">
             <p className="text-sm text-muted">Signed in as <strong className="text-ink">{session.email}</strong>.</p>
-            <p className="text-sm text-muted">The admin area arrives in build step 10.</p>
+            <p className="text-sm text-muted">The admin tools are on their way.</p>
             <form action={signOutAction}>
                 <button type="submit" className="min-h-11 w-full rounded-xl border border-line font-semibold">Sign out</button>
             </form>

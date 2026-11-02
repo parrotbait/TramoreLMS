@@ -8,6 +8,7 @@ export type EntryStatus =
     | 'pending'
     | 'active'
     | 'withdrawn'
+    | 'expired'
 
 export interface MyEntry {
     readonly entryId: string
@@ -46,7 +47,7 @@ export function entryGate(entries: readonly MyEntry[], now: Date): EntryGate {
     }
 
     const expired = entries.find((entry) => {
-        return entry.status === 'pending'
+        return entry.status === 'pending' || entry.status === 'expired'
     })
     if (expired !== undefined) {
         return { kind: 'holdExpired', entry: expired }

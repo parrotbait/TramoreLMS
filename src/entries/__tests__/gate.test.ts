@@ -50,6 +50,10 @@ describe('entryGate', () => {
         })
     })
 
+    it('treats an expired entry as a hold that has ended', () => {
+        expect(entryGate([entry('ann', { status: 'expired' })], now).kind).toBe('holdExpired')
+    })
+
     it('treats a hold ending exactly now as ended', () => {
         expect(entryGate([entry('ann', { status: 'pending', holdExpiresAt: now })], now).kind).toBe('holdExpired')
     })

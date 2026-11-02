@@ -1,7 +1,8 @@
 // Created by Claude driven by Eddie Long on 2026-11-01.
 //
 // Placeholder pick page, so sign-in and the payment gate can be tested.
-// The real pick page comes in build step 9.
+// The real pick page replaces it in build step 9. Keep player-facing wording
+// free of build details.
 
 import { redirect } from 'next/navigation'
 
@@ -12,6 +13,7 @@ import { PaymentNag, UnpaidReminder } from '@/components/PaymentNag'
 import { getDatabase } from '@/db/client'
 import { entryGate } from '@/entries/gate'
 import { entriesForPerson } from '@/entries/queries'
+import { payAction } from '@/payments/actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,20 +26,16 @@ export default async function PickPage() {
     const gate = entryGate(await entriesForPerson(getDatabase(), session.personId), new Date())
 
     return (
-        <AuthCard title={gate.kind === 'ready' ? 'You’re signed in' : 'Before you pick'}>
+        <AuthCard title={gate.kind === 'ready' ? 'You’re all set' : 'Before you pick'}>
             <p className="text-sm text-muted">Signed in as <strong className="text-ink">{session.email}</strong>.</p>
             {gate.kind === 'ready'
                 ? (
                     <>
-                        <UnpaidReminder entries={gate.unpaid} />
-                        <p className="text-sm text-muted">
-                            Paid entries: {gate.paid.map((entry) => {
-                                return entry.displayName
-                            }).join(', ')}. The pick screen arrives in build step 9.
-                        </p>
+                        <p className="text-sm text-muted">Your entry is paid. Picking opens soon.</p>
+                        <UnpaidReminder entries={gate.unpaid} payAction={payAction} />
                     </>
                 )
-                : <PaymentNag gate={gate} />}
+                : <PaymentNag gate={gate} payAction={payAction} />}
             <form action={signOutAction}>
                 <button type="submit" className="min-h-11 w-full rounded-xl border border-line font-semibold">Sign out</button>
             </form>

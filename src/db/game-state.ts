@@ -1,8 +1,9 @@
 // Created by Claude driven by Eddie Long on 2026-10-31.
 //
 // Converts database rows into the rules engine's GameState. Pure, so it is
-// tested without a database. Pending (unpaid) entries are left out: they are
-// not part of the game until they pay (Decision 18).
+// tested without a database. Only paid entries are in the game: active ones,
+// and withdrawn ones for the weeks before they withdrew. Pending and expired
+// (unpaid) entries are left out (Decision 18).
 
 import type {
     Entry,
@@ -76,7 +77,7 @@ export function toGameState(rows: CompetitionRows): GameState {
 
     const entries: Entry[] = rows.entries
         .filter((entry) => {
-            return entry.status !== 'pending'
+            return entry.status === 'active' || entry.status === 'withdrawn'
         })
         .map((entry) => {
             const withdrawnFromWeek = withdrawnFrom(entry)

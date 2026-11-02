@@ -78,6 +78,7 @@ const rows: CompetitionRows = {
         entryRow('ann'),
         entryRow('bob'),
         entryRow('pending', { status: 'pending', holdExpiresAt: created }),
+        entryRow('lapsed', { status: 'expired' }),
         entryRow('gone', { status: 'withdrawn', withdrawnFromWeek: 2 }),
     ],
     picks: [
@@ -105,7 +106,7 @@ describe('toGameState', () => {
         expect(state.weeks).toEqual([{ number: 1, cutoffAt: cutoff }, { number: 2, cutoffAt: null }])
     })
 
-    it('leaves out pending entries and their picks (Decision 18)', () => {
+    it('leaves out pending and expired entries and their picks (Decision 18)', () => {
         expect(state.entries.map((entry) => {
             return entry.id
         })).toEqual(['ann', 'bob', 'gone'])

@@ -52,6 +52,8 @@ export const entryStatus = pgEnum('entry_status', [
     'pending',
     'active',
     'withdrawn',
+    /** The 1-hour name hold ran out before payment (Decision 18). */
+    'expired',
 ])
 
 export const paymentKind = pgEnum('payment_kind', [
@@ -221,7 +223,7 @@ export const entries = pgTable('entry', {
     return [
         uniqueIndex('entry_competition_name_key')
             .on(table.competitionId, table.displayNameKey)
-            .where(sql`${table.status} <> 'withdrawn'`),
+            .where(sql`${table.status} in ('pending', 'active')`),
         index('entry_person_idx').on(table.personId),
         check('entry_name_length', sql`char_length(${table.displayName}) between 1 and 20`),
         check('entry_pending_has_hold', sql`(${table.status} = 'pending') = (${table.holdExpiresAt} is not null)`),

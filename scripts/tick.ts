@@ -14,6 +14,7 @@ import { parseArgs } from 'node:util'
 
 import { closeDatabase, getDatabase } from '@/db/client'
 import { liveFeeds } from '@/jobs/live-feeds'
+import { reconcilePayments } from '@/jobs/reconcile-payments'
 import { runTick } from '@/jobs/tick'
 import { formatDublin } from '@/lib/format'
 
@@ -43,9 +44,14 @@ async function main(): Promise<number> {
 
     const token = process.env['FOOTBALL_DATA_TOKEN'] ?? ''
     const feeds = values['no-feed'] || token === '' ? null : liveFeeds(token)
+    const payments = values['no-feed'] ? null : await reconcilePayments(getDatabase(), now)
     const reports = await runTick(getDatabase(), now, feeds)
 
     console.log(`Tick at ${formatDublin(now)} (${now.toISOString()})`)
+    if (payments !== null) {
+        const { checked, confirmed, failed, feesFilled, errors } = payments
+        console.log(`  Payments: checked ${checked}, confirmed ${confirmed}, closed ${failed}, fees filled ${feesFilled}, errors ${errors}`)
+    }
     if (reports.length === 0) {
         console.log('  No open or running competitions. Set one to open first, for example with pnpm db:seed --status open.')
     }

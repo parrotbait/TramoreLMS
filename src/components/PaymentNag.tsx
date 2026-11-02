@@ -43,18 +43,38 @@ export function PaymentNag({ gate, payAction }: {
     }
 }
 
-/** A small reminder above the pick screen, for a second entry that is still unpaid. */
-export function UnpaidReminder({ entries }: { readonly entries: readonly MyEntry[] }) {
+/**
+ * Shown above the pick screen when the same email also has an unpaid entry,
+ * for example one started for a family member. Each one gets a Pay button.
+ */
+export function UnpaidReminder({ entries, payAction }: {
+    readonly entries: readonly MyEntry[]
+    readonly payAction?: ((formData: FormData) => Promise<void>) | undefined
+}) {
     if (entries.length === 0) {
         return null
     }
 
     return (
-        <p className="rounded-xl border-2 border-gold bg-subtle px-3 py-2 text-sm">
-            {entries.length === 1
-                ? `Your entry “${entries[0]?.displayName ?? ''}” isn’t paid yet, so it can’t pick.`
-                : `${entries.length} of your entries aren’t paid yet, so they can’t pick.`}
-        </p>
+        <ul className="space-y-2">
+            {entries.map((entry) => {
+                return (
+                    <li key={entry.entryId} className="space-y-2 rounded-xl border-2 border-gold bg-subtle px-3 py-3 text-sm">
+                        <p>You have another entry, “{entry.displayName}”, that isn’t paid yet.</p>
+                        <form action={payAction}>
+                            <input type="hidden" name="entryId" value={entry.entryId} />
+                            <button
+                                type="submit"
+                                disabled={payAction === undefined}
+                                className="min-h-11 w-full rounded-xl bg-maroon font-bold text-on-maroon disabled:opacity-50"
+                            >
+                                Pay {formatEuro(entry.entryFeeCents)} for “{entry.displayName}”
+                            </button>
+                        </form>
+                    </li>
+                )
+            })}
+        </ul>
     )
 }
 

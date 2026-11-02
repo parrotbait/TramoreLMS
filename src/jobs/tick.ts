@@ -20,6 +20,8 @@ import type { FixtureChange } from '@/feeds/sync'
 import { syncFixtures } from '@/feeds/sync'
 import type { FeedMatch } from '@/feeds/types'
 
+import { expireHolds } from '@/payments/service'
+
 import { syncAlertRow, tickAlertRow } from './alert-messages'
 import type { AlertNames, AlertRow } from './alert-messages'
 import { planTick } from './plan-tick'
@@ -66,6 +68,7 @@ async function tickCompetition(
 
     return db.transaction(async (tx) => {
         await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${competitionId}))`)
+        await expireHolds(tx, now, competitionId)
 
         let rows = await loadCompetitionRows(tx, competitionId)
         const names = alertNamesOf(rows)

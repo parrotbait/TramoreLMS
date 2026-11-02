@@ -56,6 +56,37 @@ export function signInEmail(link: string, purpose: LinkPurpose): EmailContent {
     return { subject, text, html }
 }
 
+/** Sent once the entry fee is through. The link lasts 24 hours, and the sign-in page can always send another. */
+export function welcomeEmail(link: string, competitionName: string): EmailContent {
+    const subject = 'You’re in · Last Man Standing'
+    const intro = `Thanks for entering ${competitionName}, and for supporting Tramore Athletic. Your payment is through.`
+    const next = 'Use this link to sign in and make your first pick:'
+    const footer = 'The link works once, for 24 hours. After that, ask for a new one on the sign-in page.'
+
+    const text = [intro, '', next, link, '', footer, '', `Last Man Standing · ${brand.fundraisingLine}`].join('\n')
+
+    const html = `<!doctype html>
+<html lang="en-IE">
+<body style="margin:0;padding:24px;background:${colours.subtle};font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:${colours.text}">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:0 auto;background:${colours.surface};border-radius:16px;overflow:hidden">
+    <tr><td style="background:${colours.maroon};color:${colours.onMaroon};padding:20px 24px">
+      <div style="font-size:20px;font-weight:700">You’re in!</div>
+      <div style="font-size:13px;opacity:0.9">${escapeHtml(brand.fundraisingLine)}</div>
+    </td></tr>
+    <tr><td style="padding:24px">
+      <p style="margin:0 0 16px;font-size:16px">${escapeHtml(intro)}</p>
+      <p style="margin:0 0 20px">
+        <a href="${escapeHtml(link)}" style="display:inline-block;background:${colours.maroon};color:${colours.onMaroon};text-decoration:none;font-weight:700;padding:14px 22px;border-radius:12px">Make your pick</a>
+      </p>
+      <p style="margin:0;font-size:13px;color:${colours.muted}">${escapeHtml(footer)}</p>
+    </td></tr>
+  </table>
+</body>
+</html>`
+
+    return { subject, text, html }
+}
+
 function escapeHtml(value: string): string {
     return value
         .replace(/&/g, '&amp;')

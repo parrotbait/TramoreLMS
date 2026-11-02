@@ -45,4 +45,20 @@ describe('Source hygiene', () => {
 
         expect(offenders).toEqual([])
     })
+
+    it('never mentions build steps in what players see', () => {
+        // Code comments may mention them. Page and component text must not.
+        const files = [...sourceFiles('src/app'), ...sourceFiles('src/components')]
+        const offenders = files.filter((path) => {
+            const visible = readFileSync(path, 'utf8')
+                .split('\n')
+                .filter((line) => {
+                    return !line.trim().startsWith('//')
+                })
+                .join('\n')
+            return /build step|step \d+/i.test(visible)
+        })
+
+        expect(offenders).toEqual([])
+    })
 })
