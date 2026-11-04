@@ -17,6 +17,7 @@ import { toGameState } from '@/db/game-state'
 import { loadCompetitionRows } from '@/db/load'
 import { entries, picks } from '@/db/schema'
 import { validatePick } from '@/engine'
+import { isUuid } from '@/lib/ids'
 import { buyBackAction } from '@/payments/actions'
 import { pickRejectionMessage } from '@/view-models/messages'
 
@@ -93,6 +94,10 @@ async function ownedEntry(entryId: string) {
     const session = await currentSession()
     if (session === null) {
         redirect('/signin?next=/pick')
+    }
+
+    if (!isUuid(entryId)) {
+        return null
     }
 
     const [entry] = await getDatabase()

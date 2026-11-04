@@ -13,6 +13,7 @@ import { loadCompetitionRows } from '@/db/load'
 import { entries } from '@/db/schema'
 import { mailerFromEnv } from '@/email/mailer'
 import { computeStandings, isBuybackAvailable } from '@/engine'
+import { isUuid } from '@/lib/ids'
 
 import { CHECKOUT_COOKIE } from './checkout-cookie'
 import { holdExpiresAt } from './entry-rules'
@@ -107,6 +108,10 @@ async function ownEntry(entryId: string) {
     const session = await currentSession()
     if (session === null) {
         redirect('/signin?next=/pick')
+    }
+
+    if (!isUuid(entryId)) {
+        return null
     }
 
     const [entry] = await getDatabase()

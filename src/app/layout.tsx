@@ -10,6 +10,7 @@ import './globals.css'
 export const metadata: Metadata = {
     title: `Last Man Standing · ${brand.clubName}`,
     description: `${brand.fundraisingLine}. Pick one Premier League team each week. Last one standing wins.`,
+    icons: { apple: '/apple-touch-icon.png' },
 }
 
 export const viewport: Viewport = {
@@ -18,8 +19,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { readonly children: ReactNode }) {
     return (
-        <html lang="en-IE" style={themeVariables as CSSProperties}>
-            <body className="min-h-dvh antialiased">
+        // Browser extensions often add classes to <html> and <body> before React
+        // starts. suppressHydrationWarning ignores that on these two elements only.
+        <html lang="en-IE" style={themeVariables as CSSProperties} suppressHydrationWarning>
+            <body className="min-h-dvh antialiased" suppressHydrationWarning>
                 {children}
             </body>
         </html>

@@ -1,8 +1,11 @@
 // Created by Claude driven by Eddie Long on 2026-10-31.
 //
-// Saves a planned competition in one transaction.
+// Saves a planned competition, and replaces a draft competition's schedule.
+
+import { eq } from 'drizzle-orm'
 
 import type { Database } from './client'
+import type { Executor } from './load'
 import type { CompetitionPlan } from './plan-competition'
 import { competitions, fixtures, teams, weeks } from './schema'
 
@@ -37,35 +40,54 @@ export async function createCompetition(
             throw new Error('Could not create the competition.')
         }
 
-        const teamRows = await tx.insert(teams).values(plan.teams.map((team) => {
-            return { competitionId: competition.id, fullName: team.fullName, slug: team.slug }
-        })).returning({ id: teams.id, slug: teams.slug })
-        const teamIdBySlug = new Map(teamRows.map((row) => {
-            return [row.slug, row.id] as const
-        }))
-
-        const weekRows = await tx.insert(weeks).values(plan.weeks.map((week) => {
-            return { competitionId: competition.id, number: week.number, plMatchday: week.plMatchday }
-        })).returning({ id: weeks.id, number: weeks.number })
-        const weekIdByNumber = new Map(weekRows.map((row) => {
-            return [row.number, row.id] as const
-        }))
-
-        if (plan.fixtures.length > 0) {
-            await tx.insert(fixtures).values(plan.fixtures.map((fixture) => {
-                return {
-                    competitionId: competition.id,
-                    weekId: requireId(weekIdByNumber.get(fixture.weekNumber), `week ${fixture.weekNumber}`),
-                    homeTeamId: requireId(teamIdBySlug.get(fixture.homeSlug), fixture.homeSlug),
-                    awayTeamId: requireId(teamIdBySlug.get(fixture.awaySlug), fixture.awaySlug),
-                    kickoffAt: fixture.kickoffAt,
-                    externalId: fixture.externalId,
-                }
-            }))
-        }
-
+        await replaceSchedule(tx, competition.id, plan)
         return competition.id
     })
+}
+
+/**
+ * Writes the teams, weeks and fixtures for a competition, replacing any weeks
+ * and fixtures already there. Only for a competition with no picks: a draft.
+ * Teams are kept and matched by slug, so team ids stay stable.
+ */
+export async function replaceSchedule(db: Executor, competitionId: string, plan: CompetitionPlan) {
+    await db.delete(weeks).where(eq(weeks.competitionId, competitionId))
+
+    if (plan.teams.length > 0) {
+        await db.insert(teams).values(plan.teams.map((team) => {
+            return { competitionId, fullName: team.fullName, slug: team.slug }
+        })).onConflictDoNothing()
+    }
+
+    const teamRows = await db
+        .select({ id: teams.id, slug: teams.slug })
+        .from(teams)
+        .where(eq(teams.competitionId, competitionId))
+    const teamIdBySlug = new Map(teamRows.map((row) => {
+        return [row.slug, row.id] as const
+    }))
+
+    const weekRows = plan.weeks.length === 0
+        ? []
+        : await db.insert(weeks).values(plan.weeks.map((week) => {
+            return { competitionId, number: week.number, plMatchday: week.plMatchday }
+        })).returning({ id: weeks.id, number: weeks.number })
+    const weekIdByNumber = new Map(weekRows.map((row) => {
+        return [row.number, row.id] as const
+    }))
+
+    if (plan.fixtures.length > 0) {
+        await db.insert(fixtures).values(plan.fixtures.map((fixture) => {
+            return {
+                competitionId,
+                weekId: requireId(weekIdByNumber.get(fixture.weekNumber), `week ${fixture.weekNumber}`),
+                homeTeamId: requireId(teamIdBySlug.get(fixture.homeSlug), fixture.homeSlug),
+                awayTeamId: requireId(teamIdBySlug.get(fixture.awaySlug), fixture.awaySlug),
+                kickoffAt: fixture.kickoffAt,
+                externalId: fixture.externalId,
+            }
+        }))
+    }
 }
 
 function requireId(id: string | undefined, what: string): string {
