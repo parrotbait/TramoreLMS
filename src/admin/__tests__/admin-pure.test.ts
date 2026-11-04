@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { toCsv } from '../csv'
-import { parseDublinDateTime, parseEuro, parseFixtureOverride, toDublinInputValue, withdrawalWeek } from '../forms'
+import { parseDublinDateTime, parseEuro, parseFixtureOverride, seasonOf, toDublinInputValue, withdrawalWeek } from '../forms'
 import { moneyTotals } from '../money'
 import type { MoneyPayment } from '../money'
 
@@ -99,6 +99,18 @@ describe('withdrawalWeek', () => {
 
     it('withdraws from Week 1 before the competition starts', () => {
         expect(withdrawalWeek(weeks, new Date('2026-11-01T12:00:00Z'))).toBe(1)
+    })
+})
+
+describe('seasonOf', () => {
+    it('starts the next season in July', () => {
+        expect(seasonOf(new Date('2026-11-04T12:00:00Z'))).toBe(2026)
+        expect(seasonOf(new Date('2027-05-30T12:00:00Z'))).toBe(2026)
+        expect(seasonOf(new Date('2027-07-01T12:00:00Z'))).toBe(2027)
+    })
+
+    it('uses Irish time at midnight on 1 July', () => {
+        expect(seasonOf(new Date('2027-06-30T23:30:00Z'))).toBe(2027)
     })
 })
 

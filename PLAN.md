@@ -2,7 +2,7 @@
 
 A website that runs a Premier League Last Man Standing competition as a fundraiser for Tramore Athletic. Players enter and pay without a password. They pick one team per Premier League matchday. Results come in automatically from a feed. The admin can override anything.
 
-Status: plan agreed on 2026-10-31. Not yet implemented.
+Status: plan agreed on 2026-10-31. Built by 2026-11-04. Day-to-day running and the launch checklist are in `RUNBOOK.md`.
 
 ---
 

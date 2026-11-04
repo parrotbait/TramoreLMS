@@ -67,6 +67,17 @@ export function toDublinInputValue(date: Date): string {
 }
 
 /**
+ * The Premier League season a new competition is for, by its start year.
+ * Seasons run August to May, so from July a new one is next.
+ * For example, 1 Aug 2027 gives 2027 (the 2027/28 season).
+ */
+export function seasonOf(now: Date): number {
+    const parts = dublinParts(now)
+    const year = Number(parts.year)
+    return Number(parts.month) >= 7 ? year : year - 1
+}
+
+/**
  * The week a withdrawn entry stops playing from: the first week whose
  * cut-off has not passed. A week already locked is still played.
  */

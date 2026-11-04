@@ -36,10 +36,9 @@ import { openCompetitionForEntries } from '@/payments/service'
 import { gatewayFromEnv } from '@/payments/stripe'
 
 import { recordAudit, requiredReason } from './audit'
-import { parseDublinDateTime, parseEuro, parseFixtureOverride, withdrawalWeek } from './forms'
+import { parseDublinDateTime, parseEuro, parseFixtureOverride, seasonOf, withdrawalWeek } from './forms'
 import { requireAdmin } from './guard'
 
-const SEASON = 2026
 const MANUAL_METHODS = ['cash', 'revolut', 'other'] as const
 
 type ManualMethod = (typeof MANUAL_METHODS)[number]
@@ -48,7 +47,8 @@ type ManualMethod = (typeof MANUAL_METHODS)[number]
 
 export async function createCompetitionAction(formData: FormData) {
     const admin = await requireAdmin()
-    const name = text(formData, 'name') || `Last Man Standing ${SEASON}/${String(SEASON + 1).slice(2)}`
+    const season = seasonOf(new Date())
+    const name = text(formData, 'name') || `Last Man Standing ${season}/${String(season + 1).slice(2)}`
     const startMatchday = Number(text(formData, 'startMatchday'))
     const entryFeeCents = parseEuro(text(formData, 'entryFee'))
     const buybackFeeCents = parseEuro(text(formData, 'buybackFee'))
@@ -66,11 +66,11 @@ export async function createCompetitionAction(formData: FormData) {
         back('/admin', 'error', 'FOOTBALL_DATA_TOKEN is not set, so the fixtures cannot be loaded.')
     }
 
-    const plan = planCompetition(await fetchFootballData(token, SEASON), startMatchday)
+    const plan = planCompetition(await fetchFootballData(token, season), startMatchday)
     const db = getDatabase()
     const competitionId = await createCompetition(db, {
         name,
-        season: SEASON,
+        season,
         startMatchday,
         entryFeeCents,
         buybackFeeCents,
@@ -124,7 +124,7 @@ export async function updateCompetitionAction(competitionId: string, formData: F
     }
 
     const plan = isStartChanged
-        ? planCompetition(await fetchFootballData(process.env['FOOTBALL_DATA_TOKEN'] ?? '', SEASON), startMatchday)
+        ? planCompetition(await fetchFootballData(process.env['FOOTBALL_DATA_TOKEN'] ?? '', before.season), startMatchday)
         : null
 
     await db.transaction(async (tx) => {
