@@ -12,6 +12,7 @@
 import { and, eq, gte, inArray, lte, ne, sql } from 'drizzle-orm'
 
 import { createLink, findPersonById } from '@/auth/store'
+import { hashToken, newToken } from '@/auth/tokens'
 import type { Database } from '@/db/client'
 import { toGameState } from '@/db/game-state'
 import { loadCompetitionRows } from '@/db/load'
@@ -68,8 +69,14 @@ export async function openCompetitionForEntries(db: Executor, now: Date): Promis
     return null
 }
 
+/** Where to send the player, and the token to keep in their browser. */
+export interface CheckoutStart {
+    readonly url: string
+    readonly checkoutToken: string
+}
+
 export type StartEntryResult =
-    | { readonly kind: 'checkout'; readonly url: string }
+    | { readonly kind: 'checkout'; readonly checkout: CheckoutStart }
     | { readonly kind: 'invalid'; readonly errors: Readonly<Partial<Record<'displayName' | 'email', EntryFieldError>>> }
     | { readonly kind: 'nameTaken' }
     | { readonly kind: 'closed' }
@@ -136,15 +143,19 @@ export async function startEntry(
         return created
     }
 
-    return { kind: 'checkout', url: await beginCheckout(environment, created.entryId, 'entry') }
+    return { kind: 'checkout', checkout: await beginCheckout(environment, created.entryId, 'entry') }
 }
 
-/** Creates a Checkout session and records the pending payment. Returns Stripe’s page address. */
+/**
+ * Creates a Checkout session and records the pending payment. Returns
+ * Stripe’s page address, and a token for the browser: coming back from
+ * Stripe with it signs that browser in (claimCheckoutSignIn).
+ */
 export async function beginCheckout(
     environment: PaymentEnvironment,
     entryId: string,
     kind: PaymentKind,
-): Promise<string> {
+): Promise<CheckoutStart> {
     const { db, gateway, now, siteUrl } = environment
     const [row] = await db
         .select({
@@ -176,11 +187,12 @@ export async function beginCheckout(
         email: row.email,
         description,
         // Stripe fills in {CHECKOUT_SESSION_ID}, so it must stay unencoded.
-        successUrl: `${siteUrl.replace(/\/$/, '')}/enter/done?session_id={CHECKOUT_SESSION_ID}`,
+        successUrl: `${siteUrl.replace(/\/$/, '')}/enter/complete?session_id={CHECKOUT_SESSION_ID}`,
         cancelUrl: `${siteUrl.replace(/\/$/, '')}/enter/cancelled`,
         expiresAt,
     })
 
+    const checkoutToken = newToken()
     await db.insert(payments).values({
         entryId,
         kind,
@@ -188,9 +200,38 @@ export async function beginCheckout(
         status: 'pending',
         amountCents,
         stripeSessionId: session.sessionId,
+        checkoutTokenHash: hashToken(checkoutToken),
     }).onConflictDoNothing()
 
-    return session.url
+    return { url: session.url, checkoutToken }
+}
+
+/**
+ * The browser that started a Checkout is back, and the payment is paid.
+ * Uses the token up (once only) and returns who to sign in, or `null`.
+ */
+export async function claimCheckoutSignIn(
+    db: Database,
+    sessionId: string,
+    checkoutToken: string,
+    now: Date,
+): Promise<string | null> {
+    const [claimed] = await db
+        .update(payments)
+        .set({ checkoutTokenUsedAt: now })
+        .where(and(
+            eq(payments.stripeSessionId, sessionId),
+            eq(payments.status, 'paid'),
+            eq(payments.checkoutTokenHash, hashToken(checkoutToken)),
+            sql`${payments.checkoutTokenUsedAt} is null`,
+        ))
+        .returning({ entryId: payments.entryId })
+    if (claimed === undefined) {
+        return null
+    }
+
+    const [entry] = await db.select({ personId: entries.personId }).from(entries).where(eq(entries.id, claimed.entryId))
+    return entry?.personId ?? null
 }
 
 type PaidCommand = Extract<WebhookCommand, { kind: 'paid' }>

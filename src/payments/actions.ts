@@ -3,6 +3,7 @@
 'use server'
 
 import { and, eq } from 'drizzle-orm'
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 import { currentSession, siteUrl } from '@/auth/session'
@@ -13,10 +14,11 @@ import { entries } from '@/db/schema'
 import { mailerFromEnv } from '@/email/mailer'
 import { computeStandings, isBuybackAvailable } from '@/engine'
 
+import { CHECKOUT_COOKIE } from './checkout-cookie'
 import { holdExpiresAt } from './entry-rules'
 import type { EntryFieldError } from './entry-rules'
 import { beginCheckout, startEntry } from './service'
-import type { PaymentEnvironment } from './service'
+import type { CheckoutStart, PaymentEnvironment } from './service'
 import { gatewayFromEnv } from './stripe'
 
 export interface EntryFormState {
@@ -32,7 +34,7 @@ export async function startEntryAction(_previous: EntryFormState, formData: Form
         futureCommsOptIn: formData.get('futureCommsOptIn') === 'on',
     }
 
-    let url: string
+    let checkout: CheckoutStart
     try {
         const result = await startEntry(paymentEnvironment(), values)
         switch (result.kind) {
@@ -43,7 +45,7 @@ export async function startEntryAction(_previous: EntryFormState, formData: Form
             case 'closed':
                 return { values, errors: {}, problem: 'closed' }
             case 'checkout':
-                url = result.url
+                checkout = result.checkout
                 break
         }
     } catch (error) {
@@ -51,7 +53,7 @@ export async function startEntryAction(_previous: EntryFormState, formData: Form
         return { values, errors: {}, problem: 'paymentUnavailable' }
     }
 
-    redirect(url)
+    return goToCheckout(checkout)
 }
 
 /** The Pay button on the “Finish your payment” screen. */
@@ -65,7 +67,7 @@ export async function payAction(formData: FormData) {
 
     const db = getDatabase()
     await db.update(entries).set({ holdExpiresAt: holdExpiresAt(new Date()) }).where(eq(entries.id, entry.id))
-    redirect(await beginCheckout(paymentEnvironment(), entry.id, 'entry'))
+    await goToCheckout(await beginCheckout(paymentEnvironment(), entry.id, 'entry'))
 }
 
 /** The buy-back button, for Week 1 losers until the Week 2 cut-off (rule 3). */
@@ -82,7 +84,22 @@ export async function buyBackAction(formData: FormData) {
         redirect('/pick')
     }
 
-    redirect(await beginCheckout(paymentEnvironment(), entry.id, 'buyback'))
+    await goToCheckout(await beginCheckout(paymentEnvironment(), entry.id, 'buyback'))
+}
+
+/**
+ * Keeps the checkout token in this browser, then opens Stripe. Coming back
+ * from Stripe with it signs this browser in (/enter/complete).
+ */
+async function goToCheckout(checkout: CheckoutStart): Promise<never> {
+    (await cookies()).set(CHECKOUT_COOKIE, checkout.checkoutToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/enter',
+        maxAge: 2 * 60 * 60,
+    })
+    redirect(checkout.url)
 }
 
 /** The entry, if it belongs to the signed-in person. */

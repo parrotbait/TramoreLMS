@@ -242,6 +242,12 @@ export const payments = pgTable('payment', {
     feeCents: integer('fee_cents').notNull().default(0),
     stripeSessionId: text('stripe_session_id'),
     stripePaymentIntentId: text('stripe_payment_intent_id'),
+    /**
+     * SHA-256 of the cookie set in the browser that started this Checkout.
+     * Returning from Stripe with the matching cookie signs that browser in.
+     */
+    checkoutTokenHash: text('checkout_token_hash'),
+    checkoutTokenUsedAt: at('checkout_token_used_at'),
     note: text('note'),
     refundedAt: at('refunded_at'),
     createdAt: createdAt(),
