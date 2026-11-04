@@ -20,6 +20,7 @@ export const brand = {
     clubName: 'Tramore Athletic',
     fundraisingLine: 'Tramore Athletic Fundraiser',
     logoPath: '/brand/logo-shield.png',
+    contactEmail: 'tramoreathleticsecretary@gmail.com',
 } as const
 
 /** CSS custom properties for the root element. globals.css maps them into Tailwind. */

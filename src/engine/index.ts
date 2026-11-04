@@ -27,6 +27,7 @@ export type { PickRejection, PickValidation } from './picks'
 export {
     autoAssign,
     availableTeams,
+    compareTeamNames,
     isEligibleForWeek,
     pickNeedsReplacing,
     validatePick,

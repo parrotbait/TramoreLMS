@@ -11,6 +11,7 @@ import { getDatabase } from '@/db/client'
 import { mailerFromEnv } from '@/email/mailer'
 import { liveFeeds } from '@/jobs/live-feeds'
 import { reconcilePayments } from '@/jobs/reconcile-payments'
+import { removeExpiredEmails } from '@/jobs/retention'
 import { sendReminders } from '@/jobs/send-reminders'
 import { runTick } from '@/jobs/tick'
 
@@ -39,8 +40,9 @@ async function handle(request: Request): Promise<Response> {
     const feeds = token === '' ? null : liveFeeds(token)
     const reports = await runTick(db, now, feeds)
     const reminders = await sendReminders(db, mailerFromEnv(), now, siteUrl())
+    const emailsRemoved = await removeExpiredEmails(db, now, process.env['ADMIN_EMAILS'])
 
-    return Response.json({ ranAt: now.toISOString(), payments, reports, reminders })
+    return Response.json({ ranAt: now.toISOString(), payments, reports, reminders, emailsRemoved })
 }
 
 function hasBearer(request: Request, secret: string): boolean {

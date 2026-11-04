@@ -1,21 +1,22 @@
 // Created by Claude driven by Eddie Long on 2026-10-31.
 //
-// The public home page: what this is, and the way in. The fuller home page,
-// with the rules and prize details, comes with the rules page.
+// The public home page: what this is, the prize, the next cut-off, and the
+// way in. “€X raised” shows only when the admin turns it on (Decision 10d).
 
 import Image from 'next/image'
 import Link from 'next/link'
 
+import { loadPublicCompetition } from '@/content/load'
+import type { PublicCompetition } from '@/content/load'
 import { getDatabase } from '@/db/client'
-import { formatEuro } from '@/lib/format'
-import { openCompetitionForEntries } from '@/payments/service'
+import { formatDublin, formatEuro } from '@/lib/format'
 import { isPreviewEnabled } from '@/preview/enabled'
 import { brand } from '@/theme/tokens'
 
 export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
-    const competition = await openCompetitionForEntries(getDatabase(), new Date()).catch(() => {
+    const competition = await loadPublicCompetition(getDatabase(), new Date()).catch(() => {
         return null
     })
 
@@ -27,19 +28,18 @@ export default async function HomePage() {
                 <p>{brand.fundraisingLine}</p>
             </header>
             <section className="mx-auto max-w-md space-y-4 px-4 py-6 text-center">
-                <p className="text-sm text-muted">
-                    Pick one Premier League team each week. Win and you’re through. Draw or lose and you’re out.
-                    Each team once. Last one standing wins.
-                </p>
-                {competition === null
-                    ? <p className="inline-block rounded-full bg-gold px-4 py-2 font-semibold text-on-gold">Entries open soon</p>
-                    : (
-                        <Link href="/enter" className="block min-h-12 rounded-2xl bg-maroon px-4 py-3 text-lg font-bold text-on-maroon">
-                            Enter for {formatEuro(competition.entryFeeCents)}
-                        </Link>
-                    )}
+                <div className="space-y-1">
+                    <p>Pick one Premier League team each week.</p>
+                    <p>If your team wins, you are through. If it draws or loses, you are out.</p>
+                    <p>You can use each team once. The last player left wins.</p>
+                </div>
+
+                {competition === null ? null : <Facts competition={competition} />}
+
+                <EnterButton competition={competition} />
+
                 <p className="text-sm">
-                    Already entered? <Link href="/signin" className="font-semibold text-maroon underline">Sign in</Link>
+                    Already in? <Link href="/signin" className="font-semibold text-maroon underline">Sign in</Link>
                 </p>
                 {isPreviewEnabled()
                     ? (
@@ -49,6 +49,56 @@ export default async function HomePage() {
                     )
                     : null}
             </section>
+            <footer className="pb-10 text-center text-sm">
+                <Link href="/rules" className="font-semibold text-maroon underline">Rules</Link>
+                {' · '}
+                <Link href="/privacy" className="font-semibold text-maroon underline">Privacy</Link>
+            </footer>
         </main>
+    )
+}
+
+function Facts({ competition }: { readonly competition: PublicCompetition }) {
+    const facts = [
+        { label: 'Prize', value: formatEuro(competition.prizeCents) },
+        { label: 'Entry', value: formatEuro(competition.entryFeeCents) },
+        ...(competition.nextCutoff === null
+            ? []
+            : [{
+                label: `Week ${competition.nextCutoff.weekNumber} cut-off`,
+                value: formatDublin(competition.nextCutoff.at),
+            }]),
+        ...(competition.raisedCents === null
+            ? []
+            : [{ label: 'Raised for the club', value: formatEuro(competition.raisedCents) }]),
+    ]
+
+    return (
+        <dl className="grid grid-cols-2 gap-2 text-left">
+            {facts.map((fact) => {
+                return (
+                    <div key={fact.label} className="rounded-2xl border border-line bg-subtle px-3 py-2">
+                        <dt className="text-xs text-muted">{fact.label}</dt>
+                        <dd className="font-bold">{fact.value}</dd>
+                    </div>
+                )
+            })}
+        </dl>
+    )
+}
+
+function EnterButton({ competition }: { readonly competition: PublicCompetition | null }) {
+    if (competition === null) {
+        return <p className="inline-block rounded-full bg-gold px-4 py-2 font-semibold text-on-gold">Entries open soon</p>
+    }
+
+    if (!competition.isTakingEntries) {
+        return <p className="inline-block rounded-full bg-gold px-4 py-2 font-semibold text-on-gold">Entries are closed</p>
+    }
+
+    return (
+        <Link href="/enter" className="block min-h-12 rounded-2xl bg-maroon px-4 py-3 text-lg font-bold text-on-maroon">
+            Enter for {formatEuro(competition.entryFeeCents)}
+        </Link>
     )
 }

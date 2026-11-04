@@ -44,7 +44,7 @@ Status: plan agreed on 2026-10-31. Not yet implemented.
 
 ## 2. Public rules text
 
-This is the source text for `content/rules.md`. Values in `{braces}` come from the competition settings.
+This is the meaning of the rules. The page text is in `src/content/rules.ts`, in very simple English, with the values in `{braces}` filled from the competition settings.
 
 1. **Pick one team each game week.** A game week is a Premier League matchday. If your team wins, you are through to the next round. If your team draws or loses, you are out.
 2. **You can pick each team only once.** This includes auto-assigned teams and teams whose match was cancelled.
@@ -273,7 +273,7 @@ Feed adapters map teams by ID, never by name. The full official names are our ow
 |---|---|---|
 | `/` | Public | What this is, “Tramore Athletic Fundraiser”, the next cut-off, the prize, Enter button, “€X raised” if the setting is on |
 | `/enter` | Public | Entry form, then Stripe Checkout |
-| `/rules`, `/privacy` | Public | Rendered from `content/*.md` |
+| `/rules`, `/privacy` | Public | Very simple English. Rules from `src/content/rules.ts`, with the fee, prize and team order filled in |
 | `/signin` | Public | “Send me my link” |
 | `/pick` | Player | Header: “Week N · PL Matchday M · Cut-off Sat 21 Nov, 11:30”. Fixtures in kick-off order. Used teams greyed out with “Used in Week X”. Tap to pick, with a “Saved ✓” toast. Countdown in the final 24 hours. Buy-back banner when eligible. |
 | `/picks/[week]` | Player | Read-only picks after the cut-off, grouped by team, with “Auto” labels and outcomes. Before the cut-off: “Picks are revealed at the cut-off”. |

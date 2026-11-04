@@ -222,5 +222,10 @@ function findPick(state: GameState, entryId: EntryId, weekNumber: number): Pick 
 }
 
 function byFullName(left: Team, right: Team): number {
-    return left.fullName.localeCompare(right.fullName, 'en', { sensitivity: 'base' })
+    return compareTeamNames(left.fullName, right.fullName)
+}
+
+/** The auto-pick order: alphabetical by full club name, ignoring case and accents (Decision 8). */
+export function compareTeamNames(left: string, right: string): number {
+    return left.localeCompare(right, 'en', { sensitivity: 'base' })
 }
