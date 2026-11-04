@@ -246,7 +246,7 @@ Feed adapters map teams by ID, never by name. The full official names are our ow
 ## 7. Sign-in
 
 - **Players:** they request a link by email. The link is a single-use token, stored as a hash, and expires after 30 minutes. Opening it sets an HTTP-only, Secure, SameSite=Lax session cookie that lasts until the season ends.
-- **Reminder emails** contain a fresh sign-in link that goes straight to the pick screen.
+- **Reminder emails** contain a fresh sign-in link that goes straight to the pick screen. It works once and lasts until that week’s cut-off, not 30 minutes, because the email goes out up to 24 hours before.
 - **Admins:** the same flow, limited to `ADMIN_EMAILS`. Admin links last 15 minutes and work once. Admin sessions last 7 days. Every `/admin` request checks the session again.
 - **Several entries:** a signed-in person with more than one entry sees an entry switcher.
 - **Rate limits:** at most 3 sign-in emails per address per hour and 20 per IP address per hour.

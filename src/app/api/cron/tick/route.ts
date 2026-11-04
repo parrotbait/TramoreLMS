@@ -6,9 +6,12 @@
 
 import { timingSafeEqual } from 'node:crypto'
 
+import { siteUrl } from '@/auth/session'
 import { getDatabase } from '@/db/client'
+import { mailerFromEnv } from '@/email/mailer'
 import { liveFeeds } from '@/jobs/live-feeds'
 import { reconcilePayments } from '@/jobs/reconcile-payments'
+import { sendReminders } from '@/jobs/send-reminders'
 import { runTick } from '@/jobs/tick'
 
 export const dynamic = 'force-dynamic'
@@ -35,8 +38,9 @@ async function handle(request: Request): Promise<Response> {
     const token = process.env['FOOTBALL_DATA_TOKEN'] ?? ''
     const feeds = token === '' ? null : liveFeeds(token)
     const reports = await runTick(db, now, feeds)
+    const reminders = await sendReminders(db, mailerFromEnv(), now, siteUrl())
 
-    return Response.json({ ranAt: now.toISOString(), payments, reports })
+    return Response.json({ ranAt: now.toISOString(), payments, reports, reminders })
 }
 
 function hasBearer(request: Request, secret: string): boolean {

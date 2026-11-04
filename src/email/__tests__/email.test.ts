@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { mailerFromEnv } from '../mailer'
-import { signInEmail } from '../templates'
+import { reminderEmail, signInEmail } from '../templates'
 
 const link = 'https://tramorelastmanstanding.vercel.app/auth/verify?token=abc&next=%2Fpick'
 
@@ -30,6 +30,31 @@ describe('signInEmail', () => {
 
     it('uses smart quotes in the wording', () => {
         expect(signInEmail(link, 'signin').text).toContain('Here’s your link')
+    })
+})
+
+describe('reminderEmail', () => {
+    const details = { weekNumber: 3, plMatchday: 14, cutoffLabel: 'Sat 21 Nov, 11:30', entryNames: ['Aoife K'] }
+
+    it('gives the week, the cut-off and the link', () => {
+        const email = reminderEmail(link, details)
+        expect(email.subject).toBe('Week 3 pick needed by Sat 21 Nov, 11:30 · Last Man Standing')
+        expect(email.text).toContain('You haven’t made your Week 3 pick yet (PL Matchday 14).')
+        expect(email.text).toContain('Entry: Aoife K')
+        expect(email.text).toContain('The cut-off is Sat 21 Nov, 11:30.')
+        expect(email.text).toContain(link)
+        expect(email.text).toContain('works until the cut-off')
+    })
+
+    it('lists every entry on the email that hasn’t picked', () => {
+        const email = reminderEmail(link, { ...details, entryNames: ['Aoife K', 'Aoife’s Dad'] })
+        expect(email.text).toContain('Entries: Aoife K, Aoife’s Dad')
+    })
+
+    it('escapes names in the HTML', () => {
+        const email = reminderEmail(link, { ...details, entryNames: ['<b>Kev</b>'] })
+        expect(email.html).toContain('&lt;b&gt;Kev&lt;/b&gt;')
+        expect(email.html).not.toContain('<b>Kev</b>')
     })
 })
 

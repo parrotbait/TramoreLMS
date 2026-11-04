@@ -7,14 +7,17 @@
 //   pnpm tick --now 2026-11-21T11:31:00Z        pretend it is a given time
 //
 // --now is for testing locks and cut-offs on your machine. It refuses to run
-// against a database that is not on this machine.
+// against a database that is not on this machine. Reminder emails go through
+// EMAIL_TRANSPORT, which prints them in the terminal by default.
 
 import { existsSync } from 'node:fs'
 import { parseArgs } from 'node:util'
 
 import { closeDatabase, getDatabase } from '@/db/client'
+import { mailerFromEnv } from '@/email/mailer'
 import { liveFeeds } from '@/jobs/live-feeds'
 import { reconcilePayments } from '@/jobs/reconcile-payments'
+import { sendReminders } from '@/jobs/send-reminders'
 import { runTick } from '@/jobs/tick'
 import { formatDublin } from '@/lib/format'
 
@@ -46,12 +49,15 @@ async function main(): Promise<number> {
     const feeds = values['no-feed'] || token === '' ? null : liveFeeds(token)
     const payments = values['no-feed'] ? null : await reconcilePayments(getDatabase(), now)
     const reports = await runTick(getDatabase(), now, feeds)
+    const site = process.env['SITE_URL'] ?? 'http://localhost:3000'
+    const reminders = await sendReminders(getDatabase(), mailerFromEnv(), now, site)
 
     console.log(`Tick at ${formatDublin(now)} (${now.toISOString()})`)
     if (payments !== null) {
         const { checked, confirmed, failed, feesFilled, errors } = payments
         console.log(`  Payments: checked ${checked}, confirmed ${confirmed}, closed ${failed}, fees filled ${feesFilled}, errors ${errors}`)
     }
+    console.log(`  Reminders: sent ${reminders.sent}, failed ${reminders.failed}, waiting ${reminders.waiting}`)
     if (reports.length === 0) {
         console.log('  No open or running competitions. Set one to open first, for example with pnpm db:seed --status open.')
     }
