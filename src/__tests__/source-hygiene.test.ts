@@ -34,13 +34,15 @@ describe('Source hygiene', () => {
 
     it('keeps website code off the file system', () => {
         // On Vercel, dynamic file paths make the bundler trace the whole project,
-        // and public/ files are not in the server function at all.
+        // and public/ files are not in the server function at all. The one
+        // exception reads fixed folders that next.config.ts traces in.
+        const allowed = [join('src', 'share', 'assets.ts')]
         const websiteFiles = sourceFiles('src').filter((path) => {
-            return !path.includes('__tests__')
+            return !path.includes('__tests__') && !allowed.includes(path)
         })
         const offenders = websiteFiles.filter((path) => {
             const source = readFileSync(path, 'utf8')
-            return source.includes('from \'node:fs\'') || source.includes('/real-season')
+            return /from 'node:fs(\/promises)?'/.test(source) || source.includes('/real-season')
         })
 
         expect(offenders).toEqual([])

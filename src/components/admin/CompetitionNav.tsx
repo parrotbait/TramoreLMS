@@ -13,6 +13,7 @@ export function CompetitionNav({ competitionId, name, currentWeek }: {
         { href: `${base}/settings`, label: 'Settings' },
         { href: `${base}/entries`, label: 'Entries' },
         ...(currentWeek === null ? [] : [{ href: `${base}/weeks/${currentWeek}`, label: `Week ${currentWeek}` }]),
+        { href: `${base}/share`, label: 'Share' },
     ]
 
     return (
