@@ -144,6 +144,60 @@ export function reminderEmail(link: string, details: ReminderDetails): EmailCont
     return { subject, text, html }
 }
 
+export interface AlertLine {
+    readonly competitionName: string
+    readonly message: string
+}
+
+/** To the admins when new alerts open (PLAN.md section 6). One email per tick. */
+export function alertEmail(alertsPageUrl: string, lines: readonly AlertLine[]): EmailContent {
+    const subject = lines.length === 1
+        ? 'New alert · Last Man Standing'
+        : `${lines.length} new alerts · Last Man Standing`
+    const intro = lines.length === 1 ? 'Something needs a look.' : 'Some things need a look.'
+    const items = lines.map((line) => {
+        return `${line.competitionName}: ${line.message}`
+    })
+
+    const text = [
+        intro,
+        '',
+        ...items.map((item) => {
+            return `• ${item}`
+        }),
+        '',
+        'Open the alerts page:',
+        alertsPageUrl,
+        '',
+        `Last Man Standing · ${brand.fundraisingLine}`,
+    ].join('\n')
+
+    const html = `<!doctype html>
+<html lang="en-IE">
+<body style="margin:0;padding:24px;background:${colours.subtle};font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:${colours.text}">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:0 auto;background:${colours.surface};border-radius:16px;overflow:hidden">
+    <tr><td style="background:${colours.maroon};color:${colours.onMaroon};padding:20px 24px">
+      <div style="font-size:20px;font-weight:700">${escapeHtml(subject.replace(' · Last Man Standing', ''))}</div>
+      <div style="font-size:13px;opacity:0.9">${escapeHtml(brand.fundraisingLine)}</div>
+    </td></tr>
+    <tr><td style="padding:24px">
+      <p style="margin:0 0 12px;font-size:16px">${escapeHtml(intro)}</p>
+      <ul style="margin:0 0 20px;padding-left:20px;font-size:14px">
+        ${items.map((item) => {
+            return `<li style="margin:0 0 8px">${escapeHtml(item)}</li>`
+        }).join('\n        ')}
+      </ul>
+      <p style="margin:0">
+        <a href="${escapeHtml(alertsPageUrl)}" style="display:inline-block;background:${colours.maroon};color:${colours.onMaroon};text-decoration:none;font-weight:700;padding:14px 22px;border-radius:12px">Open the alerts</a>
+      </p>
+    </td></tr>
+  </table>
+</body>
+</html>`
+
+    return { subject, text, html }
+}
+
 function escapeHtml(value: string): string {
     return value
         .replace(/&/g, '&amp;')

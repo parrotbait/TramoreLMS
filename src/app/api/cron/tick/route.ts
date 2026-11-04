@@ -9,6 +9,7 @@ import { timingSafeEqual } from 'node:crypto'
 import { siteUrl } from '@/auth/session'
 import { getDatabase } from '@/db/client'
 import { mailerFromEnv } from '@/email/mailer'
+import { sendAlertEmails } from '@/jobs/alert-emails'
 import { liveFeeds } from '@/jobs/live-feeds'
 import { reconcilePayments } from '@/jobs/reconcile-payments'
 import { removeExpiredEmails } from '@/jobs/retention'
@@ -39,10 +40,13 @@ async function handle(request: Request): Promise<Response> {
     const token = process.env['FOOTBALL_DATA_TOKEN'] ?? ''
     const feeds = token === '' ? null : liveFeeds(token)
     const reports = await runTick(db, now, feeds)
-    const reminders = await sendReminders(db, mailerFromEnv(), now, siteUrl())
-    const emailsRemoved = await removeExpiredEmails(db, now, process.env['ADMIN_EMAILS'])
+    const mailer = mailerFromEnv()
+    const adminEmails = process.env['ADMIN_EMAILS']
+    const reminders = await sendReminders(db, mailer, now, siteUrl())
+    const emailsRemoved = await removeExpiredEmails(db, now, adminEmails)
+    const alertsEmailed = await sendAlertEmails(db, mailer, now, siteUrl(), adminEmails)
 
-    return Response.json({ ranAt: now.toISOString(), payments, reports, reminders, emailsRemoved })
+    return Response.json({ ranAt: now.toISOString(), payments, reports, reminders, emailsRemoved, alertsEmailed })
 }
 
 function hasBearer(request: Request, secret: string): boolean {

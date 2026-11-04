@@ -15,6 +15,7 @@ import { parseArgs } from 'node:util'
 
 import { closeDatabase, getDatabase } from '@/db/client'
 import { mailerFromEnv } from '@/email/mailer'
+import { sendAlertEmails } from '@/jobs/alert-emails'
 import { liveFeeds } from '@/jobs/live-feeds'
 import { reconcilePayments } from '@/jobs/reconcile-payments'
 import { sendReminders } from '@/jobs/send-reminders'
@@ -51,6 +52,7 @@ async function main(): Promise<number> {
     const reports = await runTick(getDatabase(), now, feeds)
     const site = process.env['SITE_URL'] ?? 'http://localhost:3000'
     const reminders = await sendReminders(getDatabase(), mailerFromEnv(), now, site)
+    const alertsEmailed = await sendAlertEmails(getDatabase(), mailerFromEnv(), now, site, process.env['ADMIN_EMAILS'])
 
     console.log(`Tick at ${formatDublin(now)} (${now.toISOString()})`)
     if (payments !== null) {
@@ -58,6 +60,7 @@ async function main(): Promise<number> {
         console.log(`  Payments: checked ${checked}, confirmed ${confirmed}, closed ${failed}, fees filled ${feesFilled}, errors ${errors}`)
     }
     console.log(`  Reminders: sent ${reminders.sent}, failed ${reminders.failed}, waiting ${reminders.waiting}`)
+    console.log(`  Alerts emailed to admins: ${alertsEmailed}`)
     if (reports.length === 0) {
         console.log('  No open or running competitions. Set one to open first, for example with pnpm db:seed --status open.')
     }

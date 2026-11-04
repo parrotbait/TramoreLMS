@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { mailerFromEnv } from '../mailer'
-import { reminderEmail, signInEmail } from '../templates'
+import { alertEmail, reminderEmail, signInEmail } from '../templates'
 
 const link = 'https://tramorelastmanstanding.vercel.app/auth/verify?token=abc&next=%2Fpick'
 
@@ -53,6 +53,31 @@ describe('reminderEmail', () => {
 
     it('escapes names in the HTML', () => {
         const email = reminderEmail(link, { ...details, entryNames: ['<b>Kev</b>'] })
+        expect(email.html).toContain('&lt;b&gt;Kev&lt;/b&gt;')
+        expect(email.html).not.toContain('<b>Kev</b>')
+    })
+})
+
+describe('alertEmail', () => {
+    const page = 'https://tramorelastmanstanding.vercel.app/admin/alerts'
+
+    it('lists each alert with its competition, and links to the alerts page', () => {
+        const email = alertEmail(page, [
+            { competitionName: 'LMS 2026/27', message: 'The two feeds disagree on the score for Arsenal v Chelsea.' },
+            { competitionName: 'LMS 2026/27', message: 'Week 4 has no fixtures.' },
+        ])
+        expect(email.subject).toBe('2 new alerts · Last Man Standing')
+        expect(email.text).toContain('• LMS 2026/27: The two feeds disagree on the score for Arsenal v Chelsea.')
+        expect(email.text).toContain('• LMS 2026/27: Week 4 has no fixtures.')
+        expect(email.text).toContain(page)
+    })
+
+    it('says “alert” for one', () => {
+        expect(alertEmail(page, [{ competitionName: 'LMS', message: 'x' }]).subject).toBe('New alert · Last Man Standing')
+    })
+
+    it('escapes messages in the HTML', () => {
+        const email = alertEmail(page, [{ competitionName: 'LMS', message: '“<b>Kev</b>” paid twice.' }])
         expect(email.html).toContain('&lt;b&gt;Kev&lt;/b&gt;')
         expect(email.html).not.toContain('<b>Kev</b>')
     })

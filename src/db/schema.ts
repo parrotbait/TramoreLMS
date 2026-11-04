@@ -354,6 +354,8 @@ export const alerts = pgTable('alert', {
     }, { onDelete: 'cascade' }),
     message: text('message').notNull(),
     resolvedAt: at('resolved_at'),
+    /** Set once the admins have been emailed about it (src/jobs/alert-emails.ts). */
+    emailedAt: at('emailed_at'),
     createdAt: createdAt(),
 }, (table) => {
     return [

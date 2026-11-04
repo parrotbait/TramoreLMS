@@ -30,6 +30,7 @@ Each call to `/api/cron/tick` runs these steps in order:
 5. Settles weeks, and moves the competition on to running or finished.
 6. Sends reminder emails. It sends at most 20 per call, and the rest go on the next call.
 7. Removes the emails of players who didn't opt in, 90 days after their last competition ends.
+8. Emails the admins about any new alerts, in one email.
 
 Every step is safe to repeat. Page visits also lock weeks at the cut-off, so a late cron call never lets a pick in after the cut-off.
 
@@ -74,7 +75,7 @@ The dashboard shows how many players have picked and whether each week has settl
 
 ## 4. Alerts
 
-The tick and the payment code write alerts to Admin → Alerts. You don't get an email about them. Check the page at least once a day while games are on. Resolve each alert with a short note once you've dealt with it.
+The tick and the payment code write alerts to Admin → Alerts. The next tick emails every address in `ADMIN_EMAILS` about new alerts, so you hear within about 10 minutes. Each alert is emailed once. Resolve each alert with a short note once you've dealt with it.
 
 | Alert | What it means | What to do |
 |---|---|---|
