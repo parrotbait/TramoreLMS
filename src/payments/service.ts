@@ -83,7 +83,7 @@ export type StartEntryResult =
 
 export async function startEntry(
     environment: PaymentEnvironment,
-    input: { readonly displayName: string; readonly email: string; readonly futureCommsOptIn: boolean },
+    input: { readonly displayName: string; readonly email: string },
 ): Promise<StartEntryResult> {
     const form = validateEntryForm(input)
     if (!form.ok) {
@@ -100,12 +100,8 @@ export async function startEntry(
         await expireHolds(tx, now, competition.id)
 
         // Entering again undoes an earlier deletion of the email (Decision 17).
-        // Ticking the box opts in. Leaving it unticked never opts anyone out.
-        await tx.insert(people).values({ email: form.email, futureCommsOptIn: input.futureCommsOptIn })
-            .onConflictDoUpdate({
-                target: people.email,
-                set: input.futureCommsOptIn ? { deletedAt: null, futureCommsOptIn: true } : { deletedAt: null },
-            })
+        await tx.insert(people).values({ email: form.email })
+            .onConflictDoUpdate({ target: people.email, set: { deletedAt: null } })
         const [person] = await tx.select({ id: people.id }).from(people).where(eq(people.email, form.email))
         if (person === undefined) {
             throw new Error('Could not save the person.')

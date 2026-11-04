@@ -16,7 +16,7 @@ interface EntryFormProps {
 }
 
 const INITIAL: EntryFormState = {
-    values: { displayName: '', email: '', futureCommsOptIn: false },
+    values: { displayName: '', email: '' },
     errors: {},
     problem: null,
 }
@@ -54,16 +54,6 @@ export function EntryForm({ action, feeLabel }: EntryFormProps) {
                     className="min-h-12 w-full rounded-xl border border-line px-3 text-base"
                 />
             </Field>
-
-            <label className="flex items-start gap-3 text-sm">
-                <input
-                    type="checkbox"
-                    name="futureCommsOptIn"
-                    defaultChecked={state.values.futureCommsOptIn}
-                    className="mt-1 h-5 w-5"
-                />
-                <span>Email me about future Tramore Athletic competitions.</span>
-            </label>
 
             <button
                 type="submit"

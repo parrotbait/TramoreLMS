@@ -33,7 +33,7 @@ Status: plan agreed on 2026-10-31. Built by 2026-11-04. Day-to-day running and t
 | 14 | Testing | Rules-engine unit tests are the priority. A command-line season simulator is also required. No browser tests, CI or staging. A manual launch checklist covers payment and sign-in. |
 | 15 | Simulator | Three modes: random (with a seed), interactive and scenario files. Scenario files double as regression tests. Real fixtures by default. `--synthetic` works offline. |
 | 16 | WhatsApp images | A weekly status image, with names, and a picks-revealed image, with counts per team and no names. Reminders never name individuals. |
-| 17 | Privacy | Display names are unique per competition, case-insensitive, at most 20 characters, and the admin can edit them. Emails are visible to admins only. An unticked opt-in box covers future competitions. Emails of players who did not opt in are deleted 90 days after the competition ends. Players can be deleted on request. |
+| 17 | Privacy | Display names are unique per competition, case-insensitive, at most 20 characters, and the admin can edit them. Emails are visible to admins only. There is no opt-in for future competitions (removed on 2026-11-04). Every player’s email is deleted 90 days after their last competition ends. Players can be deleted on request. |
 | 18 | Entry flow | A pending entry holds the display name for 1 hour, matching the Stripe Checkout session expiry. Only paid entries can pick. Buy-back reactivates the same entry. Full refunds only before the Week 1 cut-off. |
 | 19 | Visibility | Public pages are home, entry, rules and privacy. Standings, everyone’s picks and the archive need sign-in with an entry in that competition. Private pages are `noindex`. |
 | 20 | Settlement | A result is accepted automatically when football-data.org shows the match as finished and FPL agrees. Each player can pick for the next week as soon as their own result is “through”. “Out” is provisional until the whole week settles, because of rule 6. |
@@ -146,7 +146,7 @@ Rules:
 Money is stored in cents. Times are stored as `timestamptz` in UTC and shown in Europe/Dublin time.
 
 ```
-person            id, email (unique, lowercase), future_comms_opt_in, created_at, deleted_at
+person            id, email (unique, lowercase), created_at, deleted_at
 competition       id, name, season, start_matchday, entry_fee_cents, buyback_fee_cents,
                   prize_cents, entries_open, show_raised, status, created_at
 team              id, competition_id, full_name, short_name, football_data_id, fpl_id
@@ -237,7 +237,7 @@ Each rule and each edge case from the decisions table has at least one unit test
 5. **Settle weeks.** A week settles when every player still in has a final outcome. A stuck fixture that nobody picked does not hold up the week.
 6. **Send reminders.** Send the 24-hour email. Send the late email to players who become “through” after the 24-hour point.
 7. **Expire holds.** Pending entries past `hold_expires_at` lose their name hold.
-8. **Retention.** Remove emails 90 days after a competition finishes, unless the player opted in to future communications.
+8. **Retention.** Remove emails 90 days after the player’s last competition finishes. Admins are kept.
 
 Feed adapters map teams by ID, never by name. The full official names are our own data.
 
@@ -255,7 +255,7 @@ Feed adapters map teams by ID, never by name. The full official names are our ow
 
 ## 8. Payments
 
-1. The player submits a display name, an email address and the opt-in choice.
+1. The player submits a display name and an email address.
 2. The server checks that the name is unique and creates a `pending` entry with a 1-hour hold.
 3. The server creates a Stripe Checkout Session that expires after 1 hour. It carries the entry ID in its metadata. The statement descriptor reads “TRAMORE ATHLETIC”.
 4. The `checkout.session.completed` webhook marks the entry `active` and records the payment and the Stripe fee. The webhook is verified by signature and is idempotent on `stripe_session_id`.
@@ -278,7 +278,7 @@ Feed adapters map teams by ID, never by name. The full official names are our ow
 | `/pick` | Player | Header: “Week N · PL Matchday M · Cut-off Sat 21 Nov, 11:30”. Fixtures in kick-off order. Used teams greyed out with “Used in Week X”. Tap to pick, with a “Saved ✓” toast. Countdown in the final 24 hours. Buy-back banner when eligible. |
 | `/picks/[week]` | Player | Read-only picks after the cut-off, grouped by team, with “Auto” labels and outcomes. Before the cut-off: “Picks are revealed at the cut-off”. |
 | `/standings` | Player | Who is in and who is out |
-| `/me` | Player | Pick history strip, entries, opt-in setting |
+| `/me` | Player | Pick history strip, entries |
 | `/archive` | Player (in that competition) | Past competitions and their winners |
 | `/admin` | Admin | Dashboard: alerts, this week’s pick count, settlement state |
 | `/admin/settings` | Admin | Start matchday, fees, prize, entries open, show raised, new competition |

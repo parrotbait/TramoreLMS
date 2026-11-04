@@ -95,7 +95,6 @@ export const people = pgTable('person', {
     id: uuid('id').primaryKey().defaultRandom(),
     /** Always stored lower-case. */
     email: text('email').notNull(),
-    futureCommsOptIn: boolean('future_comms_opt_in').notNull().default(false),
     createdAt: createdAt(),
     /** Set when the email is removed (retention or a deletion request). */
     deletedAt: at('deleted_at'),

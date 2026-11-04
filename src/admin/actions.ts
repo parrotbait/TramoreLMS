@@ -443,7 +443,6 @@ export async function removePersonAction(entryId: string, formData: FormData) {
 
         await tx.update(people).set({
             email: `removed-${entry.personId}@removed.invalid`,
-            futureCommsOptIn: false,
             deletedAt: new Date(),
         }).where(eq(people.id, entry.personId))
         await tx.delete(sessions).where(eq(sessions.personId, entry.personId))

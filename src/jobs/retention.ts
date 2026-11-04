@@ -20,7 +20,7 @@ export async function removeExpiredEmails(db: Database, now: Date, adminEmails: 
     const candidates = await db
         .select({ id: people.id, email: people.email })
         .from(people)
-        .where(and(isNull(people.deletedAt), eq(people.futureCommsOptIn, false)))
+        .where(isNull(people.deletedAt))
     if (candidates.length === 0) {
         return 0
     }
@@ -41,7 +41,6 @@ export async function removeExpiredEmails(db: Database, now: Date, adminEmails: 
             return row.personId === person.id
         })
         return isDueForRemoval({
-            optedIn: false,
             isAdmin: admins.has(person.email),
             competitionEnds: theirs.map((row) => {
                 return ends.get(row.competitionId) ?? null

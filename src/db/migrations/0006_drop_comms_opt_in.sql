@@ -1,0 +1,1 @@
+ALTER TABLE "person" DROP COLUMN "future_comms_opt_in";

@@ -35,7 +35,6 @@ const SECTIONS: readonly { readonly title: string; readonly lines: readonly stri
         title: 'How long we keep it',
         lines: [
             `We delete your email ${RETENTION_DAYS} days after the competition ends.`,
-            'If you ticked the box to hear about future competitions, we keep it until you ask us to delete it.',
             'Your name and picks stay in the results.',
         ],
     },

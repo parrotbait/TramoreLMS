@@ -23,7 +23,7 @@ import type { CheckoutStart, PaymentEnvironment } from './service'
 import { gatewayFromEnv } from './stripe'
 
 export interface EntryFormState {
-    readonly values: { readonly displayName: string; readonly email: string; readonly futureCommsOptIn: boolean }
+    readonly values: { readonly displayName: string; readonly email: string }
     readonly errors: Readonly<Partial<Record<'displayName' | 'email', EntryFieldError>>>
     readonly problem: 'nameTaken' | 'closed' | 'paymentUnavailable' | null
 }
@@ -32,7 +32,6 @@ export async function startEntryAction(_previous: EntryFormState, formData: Form
     const values = {
         displayName: String(formData.get('displayName') ?? ''),
         email: String(formData.get('email') ?? ''),
-        futureCommsOptIn: formData.get('futureCommsOptIn') === 'on',
     }
 
     let checkout: CheckoutStart

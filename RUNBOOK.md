@@ -29,7 +29,7 @@ Each call to `/api/cron/tick` runs these steps in order:
 4. At the cut-off, picks a team for anyone with no pick.
 5. Settles weeks, and moves the competition on to running or finished.
 6. Sends reminder emails. It sends at most 20 per call, and the rest go on the next call.
-7. Removes the emails of players who didn't opt in, 90 days after their last competition ends.
+7. Removes each player's email 90 days after their last competition ends. Admins are kept.
 8. Emails the admins about any new alerts, in one email.
 
 Every step is safe to repeat. Page visits also lock weeks at the cut-off, so a late cron call never lets a pick in after the cut-off.
@@ -163,7 +163,7 @@ Every override needs a reason. It goes in the audit log (Admin → Audit). The f
 3. Settings → Open entries. Only one competition can take entries at a time.
 4. Share the `/enter` link in the WhatsApp group.
 
-Past competitions stay in the admin area. Players who opted in can be told about the new season. The payments CSV has their emails, but it doesn't yet show who opted in.
+Past competitions stay in the admin area. Players aren't asked whether they want to hear about future seasons, so announce the new season in the WhatsApp group.
 
 ---
 
