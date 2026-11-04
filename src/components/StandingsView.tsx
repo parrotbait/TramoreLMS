@@ -28,8 +28,8 @@ export function StandingsView({ model, progression, highlightEntryId }: Standing
                 {model.provisionallyOut.length > 0
                     ? (
                         <p className="mt-1 text-sm text-muted">
-                            {model.provisionallyOut.length} provisionally out.
-                            They stay in if everyone still in goes out this week.
+                            {model.provisionallyOut.length} may be out.
+                            If everyone left goes out this week, they all stay in.
                         </p>
                     )
                     : null}

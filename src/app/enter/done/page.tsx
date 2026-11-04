@@ -36,12 +36,12 @@ export default async function EnterDonePage({ searchParams }: DonePageProps) {
         return (
             <AuthCard title={row.kind === 'buyback' ? 'You’re back in!' : 'You’re in!'}>
                 <p className="text-sm text-muted">
-                    Thanks, <strong className="text-ink">{row.displayName}</strong>. Your payment is through, and it helps Tramore Athletic.
+                    Thanks, <strong className="text-ink">{row.displayName}</strong>. Your payment worked. It helps Tramore Athletic.
                 </p>
                 <p className="text-sm text-muted">
                     {isSignedIn
-                        ? 'We’ve also emailed you a link, for signing in on your other devices.'
-                        : 'We’ve emailed you a link to sign in and make your first pick.'}
+                        ? 'We also emailed you a link. Use it to sign in on your other phone or computer.'
+                        : 'We emailed you a link. Use it to sign in and make your first pick.'}
                 </p>
                 <Link
                     href={isSignedIn ? '/pick' : '/signin?next=/pick'}
@@ -56,7 +56,7 @@ export default async function EnterDonePage({ searchParams }: DonePageProps) {
     if (row.status === 'failed') {
         return (
             <AuthCard title="The payment didn’t go through">
-                <p className="text-sm text-muted">No money was taken. Sign in to try paying again while your name is held.</p>
+                <p className="text-sm text-muted">No money was taken. Sign in to try again. We keep your name for a short time.</p>
                 <Link href="/signin" className="block text-sm font-semibold text-maroon underline">Sign in</Link>
             </AuthCard>
         )

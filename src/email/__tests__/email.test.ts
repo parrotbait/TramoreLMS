@@ -43,7 +43,7 @@ describe('reminderEmail', () => {
         expect(email.text).toContain('Entry: Aoife K')
         expect(email.text).toContain('The cut-off is Sat 21 Nov, 11:30.')
         expect(email.text).toContain(link)
-        expect(email.text).toContain('works until the cut-off')
+        expect(email.text).toContain('You can use the link once, until the cut-off.')
     })
 
     it('lists every entry on the email that hasn’t picked', () => {

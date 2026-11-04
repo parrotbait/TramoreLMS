@@ -96,7 +96,7 @@ function Field({ id, label, hint, error, children }: {
 
 function Problem({ problem }: { readonly problem: NonNullable<EntryFormState['problem']> }) {
     const message = problem === 'nameTaken'
-        ? 'Someone has already entered with that name. Try adding an initial or a nickname.'
+        ? 'Someone already has that name. Try adding a letter or a nickname.'
         : problem === 'closed'
             ? 'Entries have closed.'
             : 'We couldn’t open the payment page. Please try again in a minute.'

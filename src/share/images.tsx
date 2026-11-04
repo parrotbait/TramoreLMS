@@ -92,7 +92,7 @@ export function picksImage(model: PicksImageModel, assets: ImageAssets): Sized {
                 <Header title={model.title} subtitle={model.subtitle} logo={assets.logo} />
                 <div style={{ display: 'flex', flexDirection: 'column', padding: `24px ${PADDING}px 0` }}>
                     <div style={{ display: 'flex', height: 120 }}>
-                        <Headline text={model.isRevealed ? `${model.total} picks` : 'Picks are revealed at the cut-off'} />
+                        <Headline text={model.isRevealed ? `${model.total} picks` : 'Picks show after the cut-off'} />
                     </div>
                     {model.teams.map((team) => {
                         const barWidth = Math.round((team.count / most) * 420)

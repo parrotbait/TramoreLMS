@@ -59,7 +59,7 @@ export function signInEmail(link: string, purpose: LinkPurpose): EmailContent {
 /** Sent once the entry fee is through. The link lasts 24 hours, and the sign-in page can always send another. */
 export function welcomeEmail(link: string, competitionName: string): EmailContent {
     const subject = 'You’re in · Last Man Standing'
-    const intro = `Thanks for entering ${competitionName}, and for supporting Tramore Athletic. Your payment is through.`
+    const intro = `Thanks for entering ${competitionName} and for helping Tramore Athletic. Your payment worked.`
     const next = 'Use this link to sign in and make your first pick:'
     const footer = 'The link works once, for 24 hours. After that, ask for a new one on the sign-in page.'
 
@@ -103,8 +103,8 @@ export function reminderEmail(link: string, details: ReminderDetails): EmailCont
     const entries = details.entryNames.length === 1
         ? `Entry: ${details.entryNames[0] ?? ''}`
         : `Entries: ${details.entryNames.join(', ')}`
-    const cutoff = `The cut-off is ${details.cutoffLabel}. If you don’t pick by then, a team is picked for you.`
-    const footer = 'The link signs you in once, and works until the cut-off. After that, sign in on the site as usual.'
+    const cutoff = `The cut-off is ${details.cutoffLabel}. If you don’t pick by then, we pick for you.`
+    const footer = 'You can use the link once, until the cut-off. After that, sign in on the website.'
 
     const text = [
         intro,

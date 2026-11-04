@@ -17,7 +17,7 @@ export default async function EnterPage() {
     if (competition === null) {
         return (
             <AuthCard title="Entries are closed">
-                <p className="text-sm text-muted">There’s no competition taking entries right now.</p>
+                <p className="text-sm text-muted">You can’t enter right now.</p>
                 <Link href="/signin" className="block text-sm font-semibold text-maroon underline">Already entered? Sign in</Link>
             </AuthCard>
         )
@@ -28,7 +28,7 @@ export default async function EnterPage() {
     return (
         <AuthCard title={`Enter ${competition.name}`}>
             <p className="text-sm text-muted">
-                Entry is {fee}, paid by card on the next page. No password needed: we email you a link to sign in.
+                Entry is {fee}. You pay by card on the next page. There is no password. We email you a link to sign in.
             </p>
             <EntryForm action={startEntryAction} feeLabel={fee} />
             <p className="text-xs text-muted">

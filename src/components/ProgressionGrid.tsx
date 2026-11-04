@@ -183,7 +183,7 @@ export function ProgressionGrid({ model, highlightEntryId }: ProgressionGridProp
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                     <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-muted" />
-                    No pick, auto-assigned
+                    No pick, so we picked for you
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                     <span aria-hidden="true" className="inline-block h-3 w-3 rounded ring-2 ring-gold" />
@@ -321,9 +321,9 @@ function describe(row: ProgressionRow, week: ProgressionWeek, cell: ProgressionC
         case 'empty':
             return `${prefix} · out by then`
         case 'hidden':
-            return `${prefix} · picks are hidden until the cut-off`
+            return `${prefix} · picks show after the cut-off`
         case 'noPick':
-            return `${prefix} · no pick · ${outcomeText(cell.outcome)} (admin decision)`
+            return `${prefix} · no pick · ${outcomeText(cell.outcome)} (organiser decision)`
         case 'pick':
             break
     }
@@ -332,11 +332,11 @@ function describe(row: ProgressionRow, week: ProgressionWeek, cell: ProgressionC
     const parts = [prefix, team, cell.reinstated ? 'Everyone went out, so all stayed in' : outcomeText(cell.outcome)]
 
     if (cell.auto) {
-        parts.push('No pick, auto-assigned')
+        parts.push('No pick, so we picked for you')
     }
 
     if (cell.override) {
-        parts.push('Admin decision')
+        parts.push('Organiser decision')
     }
 
     if (cell.boughtBack) {

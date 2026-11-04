@@ -21,22 +21,22 @@ export function PaymentNag({ gate, payAction }: {
             return (
                 <Notice title="Your payment didn’t go through">
                     <p>
-                        The hold on the name “{gate.entry.displayName}” has ended, so someone else may take it.
-                        Start your entry again to play.
+                        We kept the name “{gate.entry.displayName}” for you for a short time. That time is up.
+                        Enter again to play.
                     </p>
                     <EnterLink label="Enter again" />
                 </Notice>
             )
         case 'withdrawn':
             return (
-                <Notice title="Your entry was withdrawn">
-                    <p>If you think this is a mistake, contact the organiser.</p>
+                <Notice title="You are no longer in">
+                    <p>If you think this is wrong, talk to the organiser.</p>
                 </Notice>
             )
         case 'noEntry':
             return (
                 <Notice title="You don’t have an entry yet">
-                    <p>Enter for the season to start picking.</p>
+                    <p>Enter to start picking.</p>
                     <EnterLink label="Enter now" />
                 </Notice>
             )
@@ -88,10 +88,10 @@ function FinishPayment({ entry, payAction }: {
     return (
         <Notice title="Finish your payment">
             <p>
-                Your entry “{entry.displayName}” in {entry.competitionName} isn’t paid yet.
-                You can pick once your {fee} entry fee is through.
+                Your entry “{entry.displayName}” isn’t paid yet.
+                Pay {fee}, and then you can pick.
             </p>
-            {holdUntil === null ? null : <p>We’re holding the name until {holdUntil}.</p>}
+            {holdUntil === null ? null : <p>We keep the name for you until {holdUntil}.</p>}
             <form action={payAction}>
                 <input type="hidden" name="entryId" value={entry.entryId} />
                 <button

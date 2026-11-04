@@ -24,7 +24,7 @@ export default async function VerifyPage({ searchParams }: VerifyPageProps) {
         return (
             <AuthCard title="That link has expired">
                 <p className="text-sm text-muted">
-                    Sign-in links work once, for a short time. Ask for a new one and use it straight away.
+                    Each link works once, for a short time. Get a new one and use it straight away.
                 </p>
                 <Link href="/signin" className="block min-h-12 rounded-xl bg-maroon px-4 py-3 text-center font-bold text-on-maroon">
                     Get a new link

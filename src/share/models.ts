@@ -43,7 +43,7 @@ export function reminderText(context: ViewContext, settings: ShareSettings, week
         `Cut-off: ${week?.cutoffAt === null || week === undefined ? 'to be confirmed' : formatDublin(week.cutoffAt)}`,
         `${eligible.length} still in · ${notPicked === 0 ? 'everyone has picked' : `${notPicked} haven’t picked yet`}`,
         `Pick here 👉 ${site}/pick`,
-        `No pick = auto-assigned. Rules: ${site}/rules`,
+        `No pick by the cut-off? We pick for you. Rules: ${site}/rules`,
     ]
 
     const weekTwo = state.weeks.find((candidate) => {

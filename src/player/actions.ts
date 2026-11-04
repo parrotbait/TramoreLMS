@@ -30,7 +30,7 @@ import { ENTRY_COOKIE } from './load'
 export async function pickTeamAction(entryId: string, weekNumber: number, teamId: string): Promise<PickActionResult> {
     const entry = await ownedEntry(entryId)
     if (entry === null || entry.status !== 'active') {
-        return { ok: false, message: 'You can only pick for a paid entry.' }
+        return { ok: false, message: 'You need to pay before you can pick.' }
     }
 
     const db = getDatabase()

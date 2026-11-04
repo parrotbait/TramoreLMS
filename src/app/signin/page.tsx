@@ -18,7 +18,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
         return (
             <AuthCard title="Check your email">
                 <p className="text-sm text-muted">
-                    If that email address has an entry, we’ve sent you a sign-in link. It works once, for 30 minutes.
+                    If you entered with that email, we sent you a link. You can use it once, for 30 minutes.
                 </p>
                 <p className="text-sm text-muted">
                     Nothing there? Check your spam folder, or <Link href="/signin" className="font-semibold text-maroon underline">try again</Link>.
@@ -30,7 +30,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
     return (
         <AuthCard title="Sign in">
             <p className="text-sm text-muted">
-                No password needed. Enter the email address you entered with, and we’ll email you a link.
+                There is no password. Type the email you entered with. We will email you a link.
             </p>
             {params.error === 'email'
                 ? <p role="alert" className="rounded-xl bg-subtle px-3 py-2 text-sm font-semibold text-maroon">That doesn’t look like an email address.</p>

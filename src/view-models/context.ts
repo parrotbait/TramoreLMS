@@ -39,11 +39,11 @@ export function fixtureLabelOf(context: ViewContext, fixture: Fixture): string {
     return `${teamNameOf(context, fixture.homeTeamId)} v ${teamNameOf(context, fixture.awayTeamId)}`
 }
 
-/** For example “2–1”, “Postponed”, “Void (admin)”, or `null` when not played yet. */
+/** For example “2–1”, “Moved”, “Called off”, or `null` when not played yet. Same words as the rules page. */
 export function fixtureScoreLabel(fixture: Fixture): string | null {
     if (fixture.override !== undefined) {
         return fixture.override.kind === 'void'
-            ? 'Void (admin)'
+            ? 'Called off'
             : `${fixture.override.home}–${fixture.override.away}`
     }
 
@@ -51,9 +51,9 @@ export function fixtureScoreLabel(fixture: Fixture): string | null {
         case 'scheduled':
             return null
         case 'postponed':
-            return 'Postponed'
+            return 'Moved'
         case 'abandoned':
-            return 'Abandoned'
+            return 'Stopped'
         case 'finished':
             return `${fixture.state.home}–${fixture.state.away}`
     }

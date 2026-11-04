@@ -27,7 +27,7 @@ export function PicksReveal({ model, weekLinks }: PicksRevealProps) {
                 ? (
                     <section className="rounded-2xl border-2 border-line bg-subtle px-4 py-6 text-center">
                         <p className="text-3xl" aria-hidden="true">🔒</p>
-                        <p className="mt-2 font-semibold">Picks are revealed at the cut-off</p>
+                        <p className="mt-2 font-semibold">You can see picks after the cut-off</p>
                         <p className="text-sm text-muted">{model.cutoffLabel ?? 'The cut-off is not set yet.'}</p>
                     </section>
                 )
@@ -66,7 +66,7 @@ function PlayerChip({ player }: { readonly player: RevealedPlayer }) {
         : player.outcome === 'through'
             ? 'border-gold bg-surface text-ink'
             : 'border-line bg-surface text-ink'
-    const notes = [player.auto ? 'Auto' : null, player.override ? 'Admin' : null].filter((note) => {
+    const notes = [player.auto ? 'Auto' : null, player.override ? 'Organiser' : null].filter((note) => {
         return note !== null
     })
 

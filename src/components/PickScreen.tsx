@@ -99,7 +99,7 @@ export function PickScreen({ model, pickAction, buybackAction, buybackFeeLabel }
             {model.postponedLabels.length > 0
                 ? (
                     <p className="text-sm text-muted">
-                        Postponed this week: {model.postponedLabels.join(', ')}. Those teams can’t be picked.
+                        Games moved this week: {model.postponedLabels.join(', ')}. You can’t pick those teams.
                     </p>
                 )
                 : null}
@@ -132,36 +132,35 @@ function StatusPanel({ model }: { readonly model: PickScreenModel }) {
         case 'open':
             if (model.needsRepick) {
                 return (
-                    <Panel tone="warning" title="Your match was postponed">
-                        Pick again before the cut-off. If you don’t, you’ll get the first available team
-                        in alphabetical order.
+                    <Panel tone="warning" title="Your game was moved">
+                        Pick again before the cut-off. If you don’t, we pick for you.
                     </Panel>
                 )
             }
 
             return pick === null
-                ? <Panel title={`Pick a team for Week ${model.weekNumber}`}>Tap a team below. You can change it as often as you like until the cut-off.</Panel>
+                ? <Panel title={`Pick a team for Week ${model.weekNumber}`}>Tap a team below. You can change it until the cut-off.</Panel>
                 : (
                     <Panel title={`Your pick: ${pickLine ?? ''}`} crest={crest}>
-                        Tap another team to change it before the cut-off.
+                        Tap another team to change it. You can change it until the cut-off.
                     </Panel>
                 )
         case 'locked':
             return (
-                <Panel title="Picks are locked" crest={crest}>
-                    {pickLine === null ? 'Your pick is being assigned.' : `Your pick: ${pickLine}.`} Everyone’s picks are now visible.
+                <Panel title="Picks are closed" crest={crest}>
+                    {pickLine === null ? 'We are picking a team for you.' : `Your pick: ${pickLine}.`} You can now see everyone’s picks.
                 </Panel>
             )
         case 'waitingForResult':
             return (
-                <Panel title="Waiting on last week’s result">
-                    You can pick as soon as your result from last week is in.
+                <Panel title="Waiting for last week’s result">
+                    You can pick once your result is in.
                 </Panel>
             )
         case 'out':
             return (
                 <Panel title="You’re out">
-                    Thanks for playing, and for supporting Tramore Athletic. You can still follow the standings.
+                    Thanks for playing and for helping Tramore Athletic. You can still see the standings.
                 </Panel>
             )
         case 'won':
@@ -299,7 +298,7 @@ function BuybackBanner({ action, feeLabel }: { readonly action: () => Promise<vo
         <form action={action} className="rounded-2xl border-2 border-gold bg-subtle px-4 py-3">
             <h3 className="font-bold">Out in Week 1? Buy back in.</h3>
             <p className="mt-0.5 text-sm text-muted">
-                Re-enter for {feeLabel} before the Week 2 cut-off. Your Week 1 team stays used.
+                Pay {feeLabel} to get back in. Do it before the Week 2 cut-off. Your Week 1 team stays used.
             </p>
             <button type="submit" className="mt-2 min-h-11 rounded-xl bg-maroon px-4 font-semibold text-on-maroon">
                 Buy back in for {feeLabel}
