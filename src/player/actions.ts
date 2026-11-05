@@ -17,6 +17,7 @@ import { toGameState } from '@/db/game-state'
 import { loadCompetitionRows } from '@/db/load'
 import { entries, picks } from '@/db/schema'
 import { validatePick } from '@/engine'
+import { competitionNow } from '@/demo/clock'
 import { isUuid } from '@/lib/ids'
 import { buyBackAction } from '@/payments/actions'
 import { pickRejectionMessage } from '@/view-models/messages'
@@ -37,7 +38,8 @@ export async function pickTeamAction(entryId: string, weekNumber: number, teamId
     const result = await db.transaction(async (tx) => {
         await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${entry.competitionId}))`)
         const rows = await loadCompetitionRows(tx, entry.competitionId)
-        const validation = validatePick(toGameState(rows), new Date(), entry.id, weekNumber, teamId)
+        const now = competitionNow(rows.competition, new Date())
+        const validation = validatePick(toGameState(rows), now, entry.id, weekNumber, teamId)
         if (!validation.ok) {
             return { ok: false, message: pickRejectionMessage(validation.reason) } as const
         }
@@ -53,10 +55,10 @@ export async function pickTeamAction(entryId: string, weekNumber: number, teamId
         }
 
         await tx.insert(picks)
-            .values({ entryId: entry.id, weekId: week.id, teamId: team.id, source: 'player', updatedAt: new Date() })
+            .values({ entryId: entry.id, weekId: week.id, teamId: team.id, source: 'player', updatedAt: now })
             .onConflictDoUpdate({
                 target: [picks.entryId, picks.weekId],
-                set: { teamId: team.id, source: 'player', updatedAt: new Date() },
+                set: { teamId: team.id, source: 'player', updatedAt: now },
             })
 
         return { ok: true, teamName: team.fullName } as const

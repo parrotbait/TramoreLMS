@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { mailerFromEnv } from '../mailer'
-import { alertEmail, reminderEmail, signInEmail } from '../templates'
+import { alertEmail, demoInviteEmail, reminderEmail, signInEmail } from '../templates'
 
 const link = 'https://tramorelastmanstanding.vercel.app/auth/verify?token=abc&next=%2Fpick'
 
@@ -80,6 +80,21 @@ describe('alertEmail', () => {
         const email = alertEmail(page, [{ competitionName: 'LMS', message: '“<b>Kev</b>” paid twice.' }])
         expect(email.html).toContain('&lt;b&gt;Kev&lt;/b&gt;')
         expect(email.html).not.toContain('<b>Kev</b>')
+    })
+})
+
+describe('demoInviteEmail', () => {
+    it('says it is a demo, and gives the link and how long it lasts', () => {
+        const email = demoInviteEmail(link, 'Aoife')
+        expect(email.subject).toBe('Try the Last Man Standing demo')
+        expect(email.text).toContain('Hi Aoife. You’re invited to try the Last Man Standing demo.')
+        expect(email.text).toContain('Nothing is real, and no money is taken.')
+        expect(email.text).toContain(link)
+        expect(email.text).toContain('for 24 hours')
+    })
+
+    it('escapes the name in the HTML', () => {
+        expect(demoInviteEmail(link, '<b>Kev</b>').html).toContain('&lt;b&gt;Kev&lt;/b&gt;')
     })
 })
 

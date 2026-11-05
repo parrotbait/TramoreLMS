@@ -25,6 +25,7 @@ export default async function AdminLayout({ children }: { readonly children: Rea
                         <Link href="/admin" className="hover:underline">Competitions</Link>
                         <Link href="/admin/alerts" className="hover:underline">Alerts</Link>
                         <Link href="/admin/audit" className="hover:underline">Audit log</Link>
+                        <Link href="/admin/demo" className="hover:underline">Demo</Link>
                     </nav>
                     <form action={signOutAction} className="ml-auto flex items-center gap-2 text-xs">
                         <span className="opacity-90">{admin.email}</span>

@@ -117,6 +117,23 @@ Every override needs a reason. It goes in the audit log (Admin → Audit). The f
 | Open or close entries | Settings → Open entries or Close entries. The admin home page tags the competition that is “Taking entries”. Only one competition can take entries at a time. Entries close by themselves at the Week 1 cut-off. |
 | Add another admin | Add their email to `ADMIN_EMAILS` in Vercel and redeploy. They sign in at `/admin/signin`. |
 
+### Show someone how it works (the demo)
+
+Admin → Demo runs a pretend competition on the live site. It has 20 bot players and you, with the real fixtures and rules.
+
+1. Enter your name and press **Start a demo**. You get a demo entry on your own sign-in.
+2. Open **Your pick screen** and pick a team. A banner says it is a demo.
+3. Press **Next step** to move the demo clock on. Each week has three steps:
+   - go to 3 hours before the cut-off (the countdown shows)
+   - close picks (auto-picks run, and everyone's picks show)
+   - play the games (random results by team strength, and the bots pick for the next week)
+4. To steer the story, change a result on the demo's Week page with a fixture override before you play the games.
+5. To let someone play along on their own phone, use **Add a guest**. They get an email with a link to play, which works for 24 hours. After that they sign in at `/signin` with that email.
+6. The emails are real, so you can test them. Add yourself as a guest with another address to see the invite. The “3 hours before the cut-off” step sends the real reminder email to every human in the demo who hasn't picked. Bots are never emailed.
+7. Press **Wipe the demo** when you're done. It deletes the demo, its bots, every demo entry and any guest with nothing else on the site. Then you can start again.
+
+A demo never takes money, and it never sends alert emails. The cron and the feeds leave it alone. Real players never see it, and it never shows on `/`, `/rules` or `/enter`. The only emails are the guest invite, sign-in links and the reminder from the Next step button. If you also have a real entry, use “Playing as” to switch between them.
+
 ---
 
 ## 6. Deploys and database changes

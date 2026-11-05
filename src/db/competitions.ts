@@ -18,6 +18,8 @@ export interface CompetitionSettings {
     readonly buybackFeeCents?: number
     readonly prizeCents?: number
     readonly status?: 'draft' | 'open'
+    /** A demo (src/demo). It never takes entries, and starts its clock here. */
+    readonly demo?: { readonly now: Date }
 }
 
 export async function createCompetition(
@@ -35,6 +37,7 @@ export async function createCompetition(
             ...(settings.buybackFeeCents === undefined ? {} : { buybackFeeCents: settings.buybackFeeCents }),
             ...(settings.prizeCents === undefined ? {} : { prizeCents: settings.prizeCents }),
             ...(settings.status === undefined ? {} : { status: settings.status, entriesOpen: settings.status === 'open' }),
+            ...(settings.demo === undefined ? {} : { isDemo: true, demoNow: settings.demo.now, entriesOpen: false }),
         }).returning({ id: competitions.id })
         if (competition === undefined) {
             throw new Error('Could not create the competition.')

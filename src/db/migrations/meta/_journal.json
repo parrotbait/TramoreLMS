@@ -50,6 +50,13 @@
       "when": 1793833074885,
       "tag": "0006_drop_comms_opt_in",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793833405914,
+      "tag": "0007_demo_competition",
+      "breakpoints": true
     }
   ]
 }

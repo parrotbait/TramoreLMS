@@ -46,28 +46,62 @@ interface PersonReminder {
     readonly entries: readonly { readonly id: string; readonly name: string }[]
 }
 
+interface Tally {
+    sent: number
+    failed: number
+    waiting: number
+}
+
 export async function sendReminders(db: Database, mailer: Mailer, now: Date, siteUrl: string): Promise<ReminderReport> {
-    let sent = 0
-    let failed = 0
-    let waiting = 0
-
+    const tally: Tally = { sent: 0, failed: 0, waiting: 0 }
     for (const competitionId of await activeCompetitionIds(db)) {
-        for (const reminder of await dueReminders(db, competitionId, now)) {
-            if (sent + failed >= MAX_EMAILS_PER_RUN) {
-                waiting += 1
-                continue
-            }
-
-            const outcome = await sendOne(db, mailer, now, siteUrl, reminder)
-            if (outcome === 'sent') {
-                sent += 1
-            } else if (outcome === 'failed') {
-                failed += 1
-            }
-        }
+        await remindFor(db, mailer, competitionId, now, now, siteUrl, tally)
     }
 
-    return { sent, failed, waiting }
+    return tally
+}
+
+/**
+ * One competition's reminders. A demo passes its own clock as `gameNow`.
+ * Sign-in links and email_sent always use the real time, so a demo clock
+ * ahead of real time can't upset the sign-in rate limit.
+ */
+export async function sendCompetitionReminders(
+    db: Database,
+    mailer: Mailer,
+    competitionId: string,
+    gameNow: Date,
+    realNow: Date,
+    siteUrl: string,
+): Promise<ReminderReport> {
+    const tally: Tally = { sent: 0, failed: 0, waiting: 0 }
+    await remindFor(db, mailer, competitionId, gameNow, realNow, siteUrl, tally)
+
+    return tally
+}
+
+async function remindFor(
+    db: Database,
+    mailer: Mailer,
+    competitionId: string,
+    gameNow: Date,
+    realNow: Date,
+    siteUrl: string,
+    tally: Tally,
+) {
+    for (const reminder of await dueReminders(db, competitionId, gameNow)) {
+        if (tally.sent + tally.failed >= MAX_EMAILS_PER_RUN) {
+            tally.waiting += 1
+            continue
+        }
+
+        const outcome = await sendOne(db, mailer, realNow, siteUrl, reminder)
+        if (outcome === 'sent') {
+            tally.sent += 1
+        } else if (outcome === 'failed') {
+            tally.failed += 1
+        }
+    }
 }
 
 async function dueReminders(db: Database, competitionId: string, now: Date): Promise<readonly PersonReminder[]> {
@@ -141,8 +175,9 @@ async function sendOne(
     siteUrl: string,
     reminder: PersonReminder,
 ): Promise<'sent' | 'failed' | 'skipped'> {
+    // .invalid addresses can never receive email: demo bots and removed people.
     const [person] = await db.select().from(people).where(eq(people.id, reminder.personId))
-    if (person === undefined || person.deletedAt !== null) {
+    if (person === undefined || person.deletedAt !== null || person.email.endsWith('.invalid')) {
         return 'skipped'
     }
 

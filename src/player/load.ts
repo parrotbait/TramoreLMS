@@ -19,6 +19,7 @@ import type { CurrentSession } from '@/auth/session'
 import { getDatabase } from '@/db/client'
 import { toGameState } from '@/db/game-state'
 import { loadCompetitionRows } from '@/db/load'
+import { competitionNow } from '@/demo/clock'
 import { computeStandings } from '@/engine'
 import { entryGate } from '@/entries/gate'
 import type { EntryGate, MyEntry } from '@/entries/gate'
@@ -42,6 +43,8 @@ export type PlayerPage =
         readonly currentWeek: number | null
         readonly prizeCents: number
         readonly buybackFeeCents: number
+        /** A demo competition. The layout shows a banner. */
+        readonly isDemo: boolean
     }
 
 /** Memoised per request, so the layout and the page share one load. */
@@ -70,6 +73,7 @@ export const loadPlayerPage = cache(async (): Promise<PlayerPage> => {
     await ensureLocked(db, entry.competitionId, now)
     const rows = await loadCompetitionRows(db, entry.competitionId)
     const state = toGameState(rows)
+    const clock = competitionNow(rows.competition, now)
 
     const names = new Map(rows.entries.map((row) => {
         return [row.id, row.displayName] as const
@@ -96,8 +100,8 @@ export const loadPlayerPage = cache(async (): Promise<PlayerPage> => {
         unpaidEntries: gate.unpaid,
         context: {
             state,
-            standings: computeStandings(state, now),
-            now,
+            standings: computeStandings(state, clock),
+            now: clock,
             nameOf: (entryId) => {
                 return names.get(entryId) ?? 'A player'
             },
@@ -112,5 +116,6 @@ export const loadPlayerPage = cache(async (): Promise<PlayerPage> => {
         currentWeek: openedWeeks.length === 0 ? null : Math.max(...openedWeeks),
         prizeCents: rows.competition.prizeCents,
         buybackFeeCents: rows.competition.buybackFeeCents,
+        isDemo: rows.competition.isDemo,
     }
 })

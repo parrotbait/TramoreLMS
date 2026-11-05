@@ -39,6 +39,7 @@ Status: plan agreed on 2026-10-31. Built by 2026-11-04. Day-to-day running and t
 | 20 | Settlement | A result is accepted automatically when football-data.org shows the match as finished and FPL agrees. Each player can pick for the next week as soon as their own result is “through”. “Out” is provisional until the whole week settles, because of rule 6. |
 | 21 | Team crests | A club crest is shown beside every team name: pick buttons, history, everyone’s picks, standings and the WhatsApp images. The crests come from football-data.org and are stored in `public/crests/`, never hotlinked. If a crest file is missing, a neutral badge with the club’s initials is shown. Crests are trademarks, so check use with the club. |
 | 22 | Browser preview | `/preview` runs the player screens against a simulated 40-player competition in memory, with a toolbar to move time on. Development only, unless `ENABLE_PREVIEW=true`. |
+| 23 | Live demo | Admin → Demo runs a demo competition in the production database, with 20 bots, the presenter and optional guests. It has its own clock, moved on by a Next step button. Results are random by team strength, and fixture overrides can steer them. It never takes money. Guests get an invite email, and the Next step button sends the real reminder email to humans in the demo, so emails can be tested. Bots are never emailed. The cron, the feeds, `/enter` and the public pages ignore it. Wipe deletes it, and a new one can be started. |
 
 ---
 

@@ -40,6 +40,9 @@ export default async function AdminHomePage() {
                                             </td>
                                             <td>
                                                 {statusLabel(competition.status)}
+                                                {competition.isDemo
+                                                    ? <span className="ml-2 rounded bg-subtle px-1.5 py-0.5 text-xs font-semibold">Demo</span>
+                                                    : null}
                                                 {competition.id === takingEntries?.id
                                                     ? <span className="ml-2 rounded bg-gold px-1.5 py-0.5 text-xs font-semibold text-on-gold">Taking entries</span>
                                                     : null}

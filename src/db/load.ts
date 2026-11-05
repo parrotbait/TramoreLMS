@@ -2,7 +2,7 @@
 //
 // Reads everything the rules engine needs for one competition.
 
-import { eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 
 import type { Database } from './client'
 import type { CompetitionRows } from './game-state'
@@ -53,12 +53,12 @@ export async function loadCompetitionRows(db: Executor, competitionId: string): 
     }
 }
 
-/** Competitions the tick should look after. */
+/** Competitions the scheduled tick and reminders look after. Never a demo: the admin moves those on. */
 export async function activeCompetitionIds(db: Executor): Promise<readonly string[]> {
     const rows = await db
         .select({ id: competitions.id })
         .from(competitions)
-        .where(inArray(competitions.status, ['open', 'running']))
+        .where(and(inArray(competitions.status, ['open', 'running']), eq(competitions.isDemo, false)))
 
     return rows.map((row) => {
         return row.id

@@ -7,9 +7,9 @@
 // Alerts are claimed by setting emailed_at before the email goes, so two
 // ticks at once can't send the same alert twice. If sending fails, the
 // claim is removed and the next tick tries again. Alerts resolved before
-// they were emailed are skipped.
+// they were emailed are skipped, and so are demo alerts.
 
-import { and, inArray, isNull } from 'drizzle-orm'
+import { and, inArray, isNull, sql } from 'drizzle-orm'
 
 import { parseAdminEmails } from '@/auth/rules'
 import type { Database } from '@/db/client'
@@ -32,7 +32,11 @@ export async function sendAlertEmails(
 
     const claimed = await db.update(alerts)
         .set({ emailedAt: now })
-        .where(and(isNull(alerts.emailedAt), isNull(alerts.resolvedAt)))
+        .where(and(
+            isNull(alerts.emailedAt),
+            isNull(alerts.resolvedAt),
+            sql`${alerts.competitionId} in (select ${competitions.id} from ${competitions} where not ${competitions.isDemo})`,
+        ))
         .returning({
             id: alerts.id,
             competitionId: alerts.competitionId,

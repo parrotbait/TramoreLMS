@@ -27,6 +27,7 @@ import {
     sessions,
     weeks,
 } from '@/db/schema'
+import { competitionNow } from '@/demo/clock'
 import { computeStandings, isBuybackAvailable } from '@/engine'
 import { fetchFootballData } from '@/feeds/football-data'
 import { displayNameKey } from '@/lib/display-name'
@@ -156,6 +157,10 @@ export async function setEntriesOpenAction(competitionId: string, open: boolean)
     const [before] = await db.select().from(competitions).where(eq(competitions.id, competitionId))
     if (before === undefined) {
         back('/admin', 'error', 'No such competition.')
+    }
+
+    if (before.isDemo) {
+        back(`/admin/c/${competitionId}/settings`, 'error', 'A demo never takes entries. Add guests on the Demo page.')
     }
 
     // One competition takes entries at a time, so the home page and /enter
@@ -318,8 +323,8 @@ export async function withdrawEntryAction(entryId: string, formData: FormData) {
     }
 
     const db = getDatabase()
-    const now = new Date()
     const rows = await loadCompetitionRows(db, entry.competitionId)
+    const now = competitionNow(rows.competition, new Date())
     const fromWeek = withdrawalWeek(toGameState(rows).weeks, now)
     const wantsRefund = formData.get('refund') === 'on'
     if (wantsRefund && fromWeek > 1) {
@@ -374,8 +379,8 @@ export async function recordBuybackAction(entryId: string, formData: FormData) {
     }
 
     const db = getDatabase()
-    const now = new Date()
     const rows = await loadCompetitionRows(db, entry.competitionId)
+    const now = competitionNow(rows.competition, new Date())
     const state = toGameState(rows)
     if (!isBuybackAvailable(state, computeStandings(state, now), now, entryId)) {
         back(page, 'error', `“${entry.displayName}” can’t buy back: only Week 1 losers, before the Week 2 cut-off.`)

@@ -25,12 +25,14 @@ export async function removeExpiredEmails(db: Database, now: Date, adminEmails: 
         return 0
     }
 
+    // Demo entries don't count. A guest's email follows their real entries only.
     const entryRows = await db
         .select({ personId: entries.personId, competitionId: entries.competitionId })
         .from(entries)
-        .where(inArray(entries.personId, candidates.map((person) => {
+        .innerJoin(competitions, eq(competitions.id, entries.competitionId))
+        .where(and(eq(competitions.isDemo, false), inArray(entries.personId, candidates.map((person) => {
             return person.id
-        })))
+        }))))
     const ends = await competitionEnds(db, [...new Set(entryRows.map((row) => {
         return row.competitionId
     }))])

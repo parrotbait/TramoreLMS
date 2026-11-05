@@ -22,6 +22,8 @@ const competition: CompetitionRows['competition'] = {
     entriesOpen: true,
     showRaised: false,
     status: 'running',
+    isDemo: false,
+    demoNow: null,
     createdAt: created,
 }
 

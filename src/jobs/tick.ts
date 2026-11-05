@@ -18,6 +18,7 @@ import type { Executor } from '@/db/load'
 import { alerts, competitions, fixtures, picks, weeks } from '@/db/schema'
 import type { FixtureChange } from '@/feeds/sync'
 import { syncFixtures } from '@/feeds/sync'
+import { competitionNow } from '@/demo/clock'
 import type { FeedMatch } from '@/feeds/types'
 
 import { expireHolds } from '@/payments/service'
@@ -71,6 +72,8 @@ async function tickCompetition(
         await expireHolds(tx, now, competitionId)
 
         let rows = await loadCompetitionRows(tx, competitionId)
+        // A demo runs on its own clock (src/demo/clock.ts).
+        const clock = competitionNow(rows.competition, now)
         const names = alertNamesOf(rows)
         let fixtureChanges = 0
         let newAlerts = 0
@@ -91,10 +94,10 @@ async function tickCompetition(
                 teamNames,
                 primary: fetched.primary,
                 secondary: fetched.secondary,
-                now,
+                now: clock,
             })
 
-            await applyFixtureChanges(tx, result.changes, now)
+            await applyFixtureChanges(tx, result.changes, clock)
             newAlerts += await insertAlerts(tx, competitionId, result.alerts.map((alert) => {
                 return syncAlertRow(alert, names)
             }))
@@ -109,7 +112,7 @@ async function tickCompetition(
             state: toGameState(rows),
             weeks: rows.weeks,
             status: rows.competition.status,
-            now,
+            now: clock,
         })
 
         const weekIdByNumber = new Map(rows.weeks.map((week) => {
@@ -126,7 +129,7 @@ async function tickCompetition(
 
         for (const opening of plan.openings) {
             await tx.update(weeks)
-                .set({ cutoffAt: opening.cutoffAt, openedAt: now })
+                .set({ cutoffAt: opening.cutoffAt, openedAt: clock })
                 .where(and(eq(weeks.id, weekIdOf(opening.weekNumber)), sql`${weeks.openedAt} is null`))
         }
 
@@ -138,18 +141,18 @@ async function tickCompetition(
                         weekId: weekIdOf(pick.week),
                         teamId: pick.teamId,
                         source: pick.source,
-                        updatedAt: now,
+                        updatedAt: clock,
                     }
                 }))
                 .onConflictDoUpdate({
                     target: [picks.entryId, picks.weekId],
-                    set: { teamId: sql`excluded.team_id`, source: sql`excluded.source`, updatedAt: now },
+                    set: { teamId: sql`excluded.team_id`, source: sql`excluded.source`, updatedAt: clock },
                 })
         }
 
         if (plan.settledWeeks.length > 0) {
             await tx.update(weeks)
-                .set({ settledAt: now })
+                .set({ settledAt: clock })
                 .where(and(inArray(weeks.id, plan.settledWeeks.map(weekIdOf)), sql`${weeks.settledAt} is null`))
         }
 
@@ -189,6 +192,10 @@ async function fetchFeeds(db: Database, competitionId: string, feeds: FeedSource
 
     try {
         const rows = await loadCompetitionRows(db, competitionId)
+        if (rows.competition.isDemo) {
+            return { kind: 'skipped' }
+        }
+
         const teamNames = rows.teams.map((team) => {
             return team.fullName
         })

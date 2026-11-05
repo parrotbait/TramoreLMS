@@ -11,6 +11,7 @@ import { toGameState } from '@/db/game-state'
 import { loadCompetitionRows } from '@/db/load'
 import type { CompetitionRows } from '@/db/game-state'
 import { alerts, competitions, entries, payments, people } from '@/db/schema'
+import { competitionNow } from '@/demo/clock'
 import { computeStandings } from '@/engine'
 import type { GameState, Standings } from '@/engine'
 import { crestUrlOf } from '@/lib/crests'
@@ -49,8 +50,8 @@ export const loadAdminCompetition = cache(async (competitionId: string): Promise
         notFound()
     }
 
-    const now = new Date()
     const rows = await loadCompetitionRows(db, competitionId)
+    const now = competitionNow(rows.competition, new Date())
     const state = toGameState(rows)
     const standings = computeStandings(state, now)
     const entryIds = rows.entries.map((entry) => {

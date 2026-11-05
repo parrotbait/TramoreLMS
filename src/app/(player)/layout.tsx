@@ -42,6 +42,13 @@ export default async function PlayerLayout({ children }: { readonly children: Re
                 {page.kind === 'ready'
                     ? (
                         <>
+                            {page.isDemo
+                                ? (
+                                    <p className="mx-auto max-w-md rounded-xl border-2 border-gold bg-subtle px-3 py-2 text-center text-sm font-semibold">
+                                        This is a demo. Nothing here is real, and no money is taken.
+                                    </p>
+                                )
+                                : null}
                             <div className="mx-auto max-w-md">
                                 <UnpaidReminder entries={page.unpaidEntries} payAction={payAction} />
                             </div>

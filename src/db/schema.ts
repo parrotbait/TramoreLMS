@@ -118,11 +118,19 @@ export const competitions = pgTable('competition', {
     entriesOpen: boolean('entries_open').notNull().default(false),
     showRaised: boolean('show_raised').notNull().default(false),
     status: competitionStatus('status').notNull().default('draft'),
+    /**
+     * A demo for showing people how it works (src/demo). It has its own clock,
+     * and the cron, feeds, emails, entry page and Stripe never touch it.
+     */
+    isDemo: boolean('is_demo').notNull().default(false),
+    /** The demo's clock. Moved on by the admin's Next step button. */
+    demoNow: at('demo_now'),
     createdAt: createdAt(),
 }, (table) => {
     return [
         check('competition_matchdays', sql`${table.startMatchday} between 1 and ${table.finalMatchday}`),
         check('competition_money', sql`${table.entryFeeCents} >= 0 and ${table.buybackFeeCents} >= 0 and ${table.prizeCents} >= 0`),
+        check('competition_demo_clock', sql`${table.isDemo} or ${table.demoNow} is null`),
     ]
 })
 

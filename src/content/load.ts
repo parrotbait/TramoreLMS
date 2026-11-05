@@ -2,7 +2,7 @@
 //
 // What the public pages (home and rules) show about the competition. The
 // one taking entries comes first. If none is, the newest one that has
-// started. Drafts are never shown. Server only.
+// started. Drafts and demos are never shown. Server only.
 
 import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 
@@ -29,7 +29,7 @@ export async function loadPublicCompetition(db: Executor, now: Date): Promise<Pu
         ? await db
             .select()
             .from(competitions)
-            .where(inArray(competitions.status, ['open', 'running', 'finished']))
+            .where(and(inArray(competitions.status, ['open', 'running', 'finished']), eq(competitions.isDemo, false)))
             .orderBy(desc(competitions.createdAt))
             .limit(1)
         : await db.select().from(competitions).where(eq(competitions.id, open.id))

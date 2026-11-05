@@ -11,6 +11,8 @@ import { getDatabase } from '@/db/client'
 import { toGameState } from '@/db/game-state'
 import { loadCompetitionRows } from '@/db/load'
 import { entries } from '@/db/schema'
+import { competitionNow } from '@/demo/clock'
+import { recordDemoBuyback } from '@/demo/service'
 import { mailerFromEnv } from '@/email/mailer'
 import { computeStandings, isBuybackAvailable } from '@/engine'
 import { isUuid } from '@/lib/ids'
@@ -78,9 +80,16 @@ export async function buyBackAction(formData: FormData) {
         redirect('/pick')
     }
 
-    const now = new Date()
-    const state = toGameState(await loadCompetitionRows(getDatabase(), entry.competitionId))
+    const rows = await loadCompetitionRows(getDatabase(), entry.competitionId)
+    const now = competitionNow(rows.competition, new Date())
+    const state = toGameState(rows)
     if (!isBuybackAvailable(state, computeStandings(state, now), now, entry.id)) {
+        redirect('/pick')
+    }
+
+    // A demo never takes money. The buy-back is recorded at €0 instead.
+    if (rows.competition.isDemo) {
+        await recordDemoBuyback(getDatabase(), entry.id)
         redirect('/pick')
     }
 

@@ -48,12 +48,16 @@ export interface OpenCompetition {
     readonly entryFeeCents: number
 }
 
-/** The newest competition taking entries: switched on, and before the Week 1 cut-off. */
+/** The newest competition taking entries: switched on, and before the Week 1 cut-off. Never a demo. */
 export async function openCompetitionForEntries(db: Executor, now: Date): Promise<OpenCompetition | null> {
     const candidates = await db
         .select({ id: competitions.id, name: competitions.name, entryFeeCents: competitions.entryFeeCents })
         .from(competitions)
-        .where(and(eq(competitions.entriesOpen, true), inArray(competitions.status, ['open', 'running'])))
+        .where(and(
+            eq(competitions.entriesOpen, true),
+            inArray(competitions.status, ['open', 'running']),
+            eq(competitions.isDemo, false),
+        ))
         .orderBy(sql`${competitions.createdAt} desc`)
 
     for (const competition of candidates) {
