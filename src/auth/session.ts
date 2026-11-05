@@ -10,7 +10,7 @@ import { getDatabase } from '@/db/client'
 import { mailerFromEnv } from '@/email/mailer'
 
 import type { AuthEnvironment } from './flows'
-import { parseAdminEmails } from './rules'
+import { normaliseSiteUrl, parseAdminEmails } from './rules'
 import { findSession } from './store'
 
 export const SESSION_COOKIE = 'lms_session'
@@ -67,13 +67,13 @@ export function authEnvironment(): AuthEnvironment {
 /** SITE_URL, or Vercel's production address, or localhost in development. */
 export function siteUrl(): string {
     const configured = process.env['SITE_URL']
-    if (configured !== undefined && configured !== '') {
-        return configured
+    if (configured !== undefined && configured.trim() !== '') {
+        return normaliseSiteUrl(configured)
     }
 
     const vercel = process.env['VERCEL_PROJECT_PRODUCTION_URL']
     if (vercel !== undefined && vercel !== '') {
-        return `https://${vercel}`
+        return normaliseSiteUrl(vercel)
     }
 
     return 'http://localhost:3000'

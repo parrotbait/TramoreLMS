@@ -7,6 +7,7 @@ import {
     canSendAnotherLink,
     linkExpiresAt,
     normaliseEmail,
+    normaliseSiteUrl,
     parseAdminEmails,
     PLAYER_LINK_TTL_MS,
     safeNextPath,
@@ -100,5 +101,18 @@ describe('tokens', () => {
         expect(hashToken(token)).toBe(hashToken(token))
         expect(hashToken(token)).toMatch(/^[0-9a-f]{64}$/)
         expect(hashToken(token)).not.toContain(token)
+    })
+})
+
+describe('normaliseSiteUrl', () => {
+    it('adds https:// when SITE_URL has no scheme', () => {
+        expect(normaliseSiteUrl('tramorelastmanstanding.vercel.app')).toBe('https://tramorelastmanstanding.vercel.app')
+        expect(new URL('/auth/verify', normaliseSiteUrl('tramorelastmanstanding.vercel.app')).toString())
+            .toBe('https://tramorelastmanstanding.vercel.app/auth/verify')
+    })
+
+    it('keeps a scheme that is there, and drops spaces and a trailing slash', () => {
+        expect(normaliseSiteUrl(' https://example.ie/ ')).toBe('https://example.ie')
+        expect(normaliseSiteUrl('http://localhost:3000')).toBe('http://localhost:3000')
     })
 })

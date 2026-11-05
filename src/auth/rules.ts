@@ -76,3 +76,17 @@ export function safeNextPath(next: string | null | undefined, fallback = DEFAULT
 
     return next
 }
+
+/**
+ * Adds https:// when the scheme is missing, and drops a trailing slash.
+ * SITE_URL set to “tramorelastmanstanding.vercel.app” once broke every
+ * sign-in link, because new URL() needs a scheme in the base.
+ */
+export function normaliseSiteUrl(value: string): string {
+    const trimmed = value.trim().replace(/\/+$/, '')
+    if (/^https?:\/\//i.test(trimmed)) {
+        return trimmed
+    }
+
+    return `https://${trimmed}`
+}

@@ -13,6 +13,7 @@
 import { existsSync } from 'node:fs'
 import { parseArgs } from 'node:util'
 
+import { normaliseSiteUrl } from '@/auth/rules'
 import { closeDatabase, getDatabase } from '@/db/client'
 import { mailerFromEnv } from '@/email/mailer'
 import { sendAlertEmails } from '@/jobs/alert-emails'
@@ -50,7 +51,7 @@ async function main(): Promise<number> {
     const feeds = values['no-feed'] || token === '' ? null : liveFeeds(token)
     const payments = values['no-feed'] ? null : await reconcilePayments(getDatabase(), now)
     const reports = await runTick(getDatabase(), now, feeds)
-    const site = process.env['SITE_URL'] ?? 'http://localhost:3000'
+    const site = normaliseSiteUrl(process.env['SITE_URL'] ?? 'http://localhost:3000')
     const reminders = await sendReminders(getDatabase(), mailerFromEnv(), now, site)
     const alertsEmailed = await sendAlertEmails(getDatabase(), mailerFromEnv(), now, site, process.env['ADMIN_EMAILS'])
 
