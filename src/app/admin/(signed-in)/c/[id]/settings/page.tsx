@@ -1,9 +1,9 @@
 // Created by Claude driven by Eddie Long on 2026-11-04.
 
-import { setEntriesOpenAction, updateCompetitionAction } from '@/admin/actions'
+import { deactivateCompetitionAction, setEntriesOpenAction, updateCompetitionAction } from '@/admin/actions'
 import { loadAdminCompetition } from '@/admin/load'
 import { CompetitionNav } from '@/components/admin/CompetitionNav'
-import { Card, Field, Submit } from '@/components/admin/ui'
+import { ActionPanel, Card, Field, Submit } from '@/components/admin/ui'
 
 interface SettingsProps {
     readonly params: Promise<{ readonly id: string }>
@@ -58,6 +58,28 @@ export default async function CompetitionSettings({ params }: SettingsProps) {
                     </div>
                 </form>
             </Card>
+
+            {competition.isDemo || competition.status === 'draft' || competition.status === 'finished'
+                ? null
+                : (
+                    <Card title="Switch off">
+                        <p className="text-sm text-muted">
+                            Stops the competition. It takes no entries, locks no weeks and sends no reminders.
+                            Nothing is deleted. Open entries again to switch it back on.
+                        </p>
+                        <ActionPanel label="Deactivate this competition">
+                            <form action={deactivateCompetitionAction.bind(null, id)} className="space-y-3">
+                                <Field label="Reason (saved in the audit log)" name="reason" placeholder="For example: made by mistake" />
+                                <Field
+                                    label="Type DEACTIVATE to confirm"
+                                    name="confirm"
+                                    hint="Needed when the competition has players. Not needed when it is empty."
+                                />
+                                <Submit tone="danger">Deactivate</Submit>
+                            </form>
+                        </ActionPanel>
+                    </Card>
+                )}
         </>
     )
 }

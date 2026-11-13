@@ -10,6 +10,8 @@ import { and, eq, inArray, isNull, ne } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
+import { createLink } from '@/auth/store'
+import { siteUrl } from '@/auth/session'
 import { getDatabase } from '@/db/client'
 import { createCompetition, replaceSchedule } from '@/db/competitions'
 import { toGameState } from '@/db/game-state'
@@ -29,6 +31,8 @@ import {
 } from '@/db/schema'
 import { competitionNow } from '@/demo/clock'
 import { computeStandings, isBuybackAvailable } from '@/engine'
+import { addedEntryEmail } from '@/email/templates'
+import { mailerFromEnv } from '@/email/mailer'
 import { fetchFootballData } from '@/feeds/football-data'
 import { displayNameKey } from '@/lib/display-name'
 import { isUuid } from '@/lib/ids'
@@ -41,6 +45,9 @@ import { parseDublinDateTime, parseEuro, parseFixtureOverride, seasonOf, withdra
 import { requireAdmin } from './guard'
 
 const MANUAL_METHODS = ['cash', 'revolut', 'other'] as const
+
+/** Like the welcome email: 24 hours, as people often open it later. */
+const ADDED_LINK_TTL_MS = 24 * 60 * 60 * 1000
 
 type ManualMethod = (typeof MANUAL_METHODS)[number]
 
@@ -189,9 +196,65 @@ export async function setEntriesOpenAction(competitionId: string, open: boolean)
     back(`/admin/c/${competitionId}/settings`, 'notice', open ? 'Entries are open.' : 'Entries are closed.')
 }
 
+/**
+ * Switches a competition off. It goes back to a draft and stops taking entries.
+ * The tick, the reminder emails and the entry page only look at open and
+ * running competitions, so all of them leave it alone. Nothing is deleted.
+ * Open entries on the settings page to switch it on again.
+ *
+ * A competition with players in it needs DEACTIVATE typed as a confirmation.
+ */
+export async function deactivateCompetitionAction(competitionId: string, formData: FormData) {
+    const admin = await requireAdmin()
+    requireId(competitionId)
+    const page = `/admin/c/${competitionId}/settings`
+    const db = getDatabase()
+    const [before] = await db.select().from(competitions).where(eq(competitions.id, competitionId))
+    if (before === undefined) {
+        back('/admin', 'error', 'No such competition.')
+    }
+
+    if (before.isDemo) {
+        back(page, 'error', 'This is a demo. Remove it on the Demo page.')
+    }
+
+    if (before.status === 'draft' || before.status === 'finished') {
+        back(page, 'error', `This competition is already ${before.status === 'draft' ? 'a draft' : 'finished'}.`)
+    }
+
+    const players = await db.select({ id: entries.id }).from(entries).where(and(
+        eq(entries.competitionId, competitionId),
+        inArray(entries.status, ['pending', 'active']),
+    ))
+    if (players.length > 0 && text(formData, 'confirm') !== 'DEACTIVATE') {
+        back(page, 'error', `This competition has ${players.length} player${players.length === 1 ? '' : 's'}. Type DEACTIVATE to switch it off.`)
+    }
+
+    const reason = requiredReason(formData.get('reason')) ?? 'Deactivated'
+    await db.transaction(async (tx) => {
+        await tx.update(competitions)
+            .set({ status: 'draft', entriesOpen: false })
+            .where(eq(competitions.id, competitionId))
+        await recordAudit(tx, {
+            actorEmail: admin.email,
+            action: 'competition.deactivate',
+            targetType: 'competition',
+            targetId: competitionId,
+            before: { status: before.status, entriesOpen: before.entriesOpen },
+            after: { status: 'draft', entriesOpen: false },
+            reason,
+        })
+    })
+
+    back('/admin', 'notice', `“${before.name}” is switched off.`)
+}
+
 // ── Entries ──────────────────────────────────────────────────────────────
 
-/** A player who paid cash or Revolut (Decision 18). The welcome email is not sent: they sign in from the site. */
+/**
+ * A player who paid cash or Revolut (Decision 18). They get an email with a
+ * sign-in link. If the email fails, the entry stays and the admin is told.
+ */
 export async function addEntryAction(competitionId: string, formData: FormData) {
     const admin = await requireAdmin()
     requireId(competitionId)
@@ -253,14 +316,19 @@ export async function addEntryAction(competitionId: string, formData: FormData) 
             reason: text(formData, 'note') || `Paid by ${method}`,
         })
 
-        return entry.id
+        return { entryId: entry.id, personId: person.id }
     })
 
     if (added === null) {
         back(page, 'error', `Someone has already entered as “${form.displayName}”.`)
     }
 
-    back(page, 'notice', `Added “${form.displayName}”. They can sign in at /signin with ${form.email}.`)
+    const isEmailSent = await sendAddedEntryEmail(added.personId, form.email, competition.name, form.displayName)
+    if (!isEmailSent) {
+        back(page, 'notice', `Added “${form.displayName}”, but the email could not be sent. Tell them to sign in at /signin with ${form.email}.`)
+    }
+
+    back(page, 'notice', `Added “${form.displayName}”. We emailed ${form.email} a sign-in link.`)
 }
 
 export async function renameEntryAction(entryId: string, formData: FormData) {
@@ -632,6 +700,28 @@ export async function resolveAlertAction(alertId: string, formData: FormData) {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
+
+/** Emails the player a sign-in link that opens the pick screen. Returns `false` if it could not be sent. */
+async function sendAddedEntryEmail(
+    personId: string,
+    email: string,
+    competitionName: string,
+    displayName: string,
+): Promise<boolean> {
+    try {
+        const now = new Date()
+        const token = await createLink(getDatabase(), personId, 'signin', new Date(now.getTime() + ADDED_LINK_TTL_MS), now)
+        const link = new URL('/auth/verify', siteUrl())
+        link.searchParams.set('token', token)
+        link.searchParams.set('next', '/pick')
+        await mailerFromEnv().send({ to: email, ...addedEntryEmail(link.toString(), competitionName, displayName) })
+    } catch (error) {
+        console.warn('Could not email the added player:', error)
+        return false
+    }
+
+    return true
+}
 
 function back(path: string, kind: 'notice' | 'error', message: string): never {
     revalidatePath('/admin', 'layout')

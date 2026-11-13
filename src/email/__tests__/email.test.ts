@@ -2,8 +2,8 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { mailerFromEnv } from '../mailer'
-import { alertEmail, demoInviteEmail, reminderEmail, signInEmail } from '../templates'
+import { mailerFromEnv, withLogging } from '../mailer'
+import { addedEntryEmail, alertEmail, demoInviteEmail, reminderEmail, signInEmail } from '../templates'
 
 const link = 'https://tramorelastmanstanding.vercel.app/auth/verify?token=abc&next=%2Fpick'
 
@@ -95,6 +95,77 @@ describe('demoInviteEmail', () => {
 
     it('escapes the name in the HTML', () => {
         expect(demoInviteEmail(link, '<b>Kev</b>').html).toContain('&lt;b&gt;Kev&lt;/b&gt;')
+    })
+})
+
+describe('addedEntryEmail', () => {
+    it('says they were added, and gives the link and how long it lasts', () => {
+        const email = addedEntryEmail(link, 'Last Man Standing 2026/27', 'Aoife')
+        expect(email.subject).toBe('You’re in · Last Man Standing')
+        expect(email.text).toContain('You’ve been added to Last Man Standing 2026/27 as “Aoife”.')
+        expect(email.text).toContain(link)
+        expect(email.text).toContain('for 24 hours')
+        expect(email.html).toContain(`href="${link.replace(/&/g, '&amp;')}"`)
+    })
+
+    it('does not say a payment worked, as nobody paid online', () => {
+        expect(addedEntryEmail(link, 'LMS', 'Aoife').text).not.toContain('payment')
+    })
+
+    it('escapes the names in the HTML', () => {
+        const email = addedEntryEmail(link, '<i>LMS</i>', '<b>Kev</b>')
+        expect(email.html).toContain('&lt;b&gt;Kev&lt;/b&gt;')
+        expect(email.html).toContain('&lt;i&gt;LMS&lt;/i&gt;')
+        expect(email.html).not.toContain('<b>Kev</b>')
+    })
+})
+
+describe('withLogging', () => {
+    const message = { to: 'aoife@gmail.com', subject: 'Your sign-in link', text: 't', html: 'h' }
+
+    function recorder() {
+        const lines: string[] = []
+        return {
+            lines,
+            log: {
+                info: (line: string) => {
+                    lines.push(line)
+                },
+                error: (line: string) => {
+                    lines.push(line)
+                },
+            },
+        }
+    }
+
+    it('logs before and after a send, with a shortened address and the time taken', async () => {
+        const { lines, log } = recorder()
+        const mailer = withLogging({ send: async () => {} }, log)
+
+        await mailer.send(message)
+
+        expect(lines).toHaveLength(2)
+        expect(lines[0]).toBe('[email] sending to=a***@gmail.com subject="Your sign-in link"')
+        expect(lines[1]).toMatch(/^\[email\] sent to=a\*\*\*@gmail\.com subject="Your sign-in link" ms=\d+$/)
+    })
+
+    it('never logs the full address', async () => {
+        const { lines, log } = recorder()
+        await withLogging({ send: async () => {} }, log).send(message)
+
+        expect(lines.join('\n')).not.toContain('aoife')
+    })
+
+    it('logs the failure and still throws', async () => {
+        const { lines, log } = recorder()
+        const mailer = withLogging({
+            send: async () => {
+                throw new Error('Invalid login')
+            },
+        }, log)
+
+        await expect(mailer.send(message)).rejects.toThrow('Invalid login')
+        expect(lines[1]).toMatch(/^\[email\] failed .* ms=\d+ error="Invalid login"$/)
     })
 })
 

@@ -27,10 +27,51 @@ export function mailerFromEnv(env: Readonly<Record<string, string | undefined>> 
         case 'console':
             return consoleMailer
         case 'gmail':
-            return gmailMailer(env['GMAIL_USER'] ?? '', env['GMAIL_APP_PASSWORD'] ?? '', env['EMAIL_REPLY_TO'])
+            return withLogging(gmailMailer(env['GMAIL_USER'] ?? '', env['GMAIL_APP_PASSWORD'] ?? '', env['EMAIL_REPLY_TO']))
         default:
             throw new Error(`Unknown EMAIL_TRANSPORT “${transport}”. Use console or gmail.`)
     }
+}
+
+/** Where the log lines go. Tests pass their own. */
+export interface MailLog {
+    info(message: string): void
+    error(message: string): void
+}
+
+/**
+ * Logs every send, so slow and failed emails show up in the Vercel logs.
+ * Search the logs for “[email]”. A “sending” line with no “sent” or
+ * “failed” after it means the function stopped before Gmail answered.
+ * The address is shortened, for example a***@gmail.com.
+ */
+export function withLogging(mailer: Mailer, log: MailLog = console): Mailer {
+    return {
+        send: async (message) => {
+            const label = `to=${maskedAddress(message.to)} subject="${message.subject}"`
+            const startedAt = Date.now()
+            log.info(`[email] sending ${label}`)
+
+            try {
+                await mailer.send(message)
+            } catch (error) {
+                const reason = error instanceof Error ? error.message : String(error)
+                log.error(`[email] failed ${label} ms=${Date.now() - startedAt} error="${reason}"`)
+                throw error
+            }
+
+            log.info(`[email] sent ${label} ms=${Date.now() - startedAt}`)
+        },
+    }
+}
+
+function maskedAddress(address: string): string {
+    const at = address.lastIndexOf('@')
+    if (at < 1) {
+        return '***'
+    }
+
+    return `${address.slice(0, 1)}***${address.slice(at)}`
 }
 
 const consoleMailer: Mailer = {
