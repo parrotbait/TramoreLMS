@@ -249,6 +249,63 @@ export async function deactivateCompetitionAction(competitionId: string, formDat
     back('/admin', 'notice', `“${before.name}” is switched off.`)
 }
 
+/**
+ * Deletes a competition made by mistake. It only works on a draft with no
+ * entries at all, so no player and no payment is ever lost. The weeks,
+ * fixtures and teams go with it. DELETE must be typed as a confirmation.
+ */
+export async function deleteCompetitionAction(competitionId: string, formData: FormData) {
+    const admin = await requireAdmin()
+    requireId(competitionId)
+    const page = `/admin/c/${competitionId}/settings`
+    const db = getDatabase()
+    const [before] = await db.select().from(competitions).where(eq(competitions.id, competitionId))
+    if (before === undefined) {
+        back('/admin', 'error', 'No such competition.')
+    }
+
+    if (before.isDemo) {
+        back(page, 'error', 'This is a demo. Remove it on the Demo page.')
+    }
+
+    if (before.status !== 'draft') {
+        back(page, 'error', 'Only a draft can be deleted. Deactivate it first.')
+    }
+
+    if (text(formData, 'confirm') !== 'DELETE') {
+        back(page, 'error', 'Type DELETE to confirm.')
+    }
+
+    const reason = requiredReason(formData.get('reason')) ?? 'Deleted'
+    const isDeleted = await db.transaction(async (tx) => {
+        const [entry] = await tx
+            .select({ id: entries.id })
+            .from(entries)
+            .where(eq(entries.competitionId, competitionId))
+            .limit(1)
+        if (entry !== undefined) {
+            return false
+        }
+
+        await tx.delete(competitions).where(eq(competitions.id, competitionId))
+        await recordAudit(tx, {
+            actorEmail: admin.email,
+            action: 'competition.delete',
+            targetType: 'competition',
+            targetId: competitionId,
+            before: { name: before.name, season: before.season, startMatchday: before.startMatchday },
+            reason,
+        })
+
+        return true
+    })
+    if (!isDeleted) {
+        back(page, 'error', 'This competition has entries, so it can’t be deleted. Withdraw them first, or leave it as a draft.')
+    }
+
+    back('/admin', 'notice', `“${before.name}” is deleted.`)
+}
+
 // ── Entries ──────────────────────────────────────────────────────────────
 
 /**

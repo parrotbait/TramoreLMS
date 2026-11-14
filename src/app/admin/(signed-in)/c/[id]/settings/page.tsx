@@ -1,6 +1,11 @@
 // Created by Claude driven by Eddie Long on 2026-11-04.
 
-import { deactivateCompetitionAction, setEntriesOpenAction, updateCompetitionAction } from '@/admin/actions'
+import {
+    deactivateCompetitionAction,
+    deleteCompetitionAction,
+    setEntriesOpenAction,
+    updateCompetitionAction,
+} from '@/admin/actions'
 import { loadAdminCompetition } from '@/admin/load'
 import { CompetitionNav } from '@/components/admin/CompetitionNav'
 import { ActionPanel, Card, Field, Submit } from '@/components/admin/ui'
@@ -76,6 +81,24 @@ export default async function CompetitionSettings({ params }: SettingsProps) {
                                     hint="Needed when the competition has players. Not needed when it is empty."
                                 />
                                 <Submit tone="danger">Deactivate</Submit>
+                            </form>
+                        </ActionPanel>
+                    </Card>
+                )}
+
+            {competition.isDemo || competition.status !== 'draft'
+                ? null
+                : (
+                    <Card title="Delete">
+                        <p className="text-sm text-muted">
+                            Removes a competition made by mistake, with its weeks and fixtures.
+                            It only works while there are no entries. It can’t be undone.
+                        </p>
+                        <ActionPanel label="Delete this competition">
+                            <form action={deleteCompetitionAction.bind(null, id)} className="space-y-3">
+                                <Field label="Reason (saved in the audit log)" name="reason" placeholder="For example: made by mistake" />
+                                <Field label="Type DELETE to confirm" name="confirm" required />
+                                <Submit tone="danger">Delete</Submit>
                             </form>
                         </ActionPanel>
                     </Card>
