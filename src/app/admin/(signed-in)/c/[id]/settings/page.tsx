@@ -35,7 +35,7 @@ export default async function CompetitionSettings({ params }: SettingsProps) {
                             : 'Entries are closed.'}
                 </p>
                 <form action={setEntriesOpenAction.bind(null, id, !competition.entriesOpen)}>
-                    <Submit tone={competition.entriesOpen ? 'danger' : 'primary'}>
+                    <Submit tone={competition.entriesOpen ? 'danger' : 'primary'} pendingLabel={competition.entriesOpen ? 'Closing…' : 'Opening…'}>
                         {competition.entriesOpen ? 'Close entries' : 'Open entries'}
                     </Submit>
                 </form>
@@ -59,7 +59,7 @@ export default async function CompetitionSettings({ params }: SettingsProps) {
                         Show “€X raised for the club” on the home page
                     </label>
                     <div>
-                        <Submit>Save settings</Submit>
+                        <Submit pendingLabel="Saving…">Save settings</Submit>
                     </div>
                 </form>
             </Card>
@@ -80,7 +80,7 @@ export default async function CompetitionSettings({ params }: SettingsProps) {
                                     name="confirm"
                                     hint="Needed when the competition has players. Not needed when it is empty."
                                 />
-                                <Submit tone="danger">Deactivate</Submit>
+                                <Submit tone="danger" pendingLabel="Deactivating…">Deactivate</Submit>
                             </form>
                         </ActionPanel>
                     </Card>
@@ -98,7 +98,7 @@ export default async function CompetitionSettings({ params }: SettingsProps) {
                             <form action={deleteCompetitionAction.bind(null, id)} className="space-y-3">
                                 <Field label="Reason (saved in the audit log)" name="reason" placeholder="For example: made by mistake" />
                                 <Field label="Type DELETE to confirm" name="confirm" required />
-                                <Submit tone="danger">Delete</Submit>
+                                <Submit tone="danger" pendingLabel="Deleting…">Delete</Submit>
                             </form>
                         </ActionPanel>
                     </Card>

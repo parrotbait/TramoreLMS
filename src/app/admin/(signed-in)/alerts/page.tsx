@@ -40,7 +40,7 @@ export default async function AlertsPage() {
                                         <ActionPanel label="Mark as resolved">
                                             <form action={resolveAlertAction.bind(null, alert.id)} className="space-y-2">
                                                 <Field label="What you did (optional)" name="note" placeholder="Refunded the second payment" />
-                                                <Submit>Resolve</Submit>
+                                                <Submit pendingLabel="Resolving…">Resolve</Submit>
                                             </form>
                                         </ActionPanel>
                                     </li>

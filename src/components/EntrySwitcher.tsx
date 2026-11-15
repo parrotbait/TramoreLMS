@@ -7,6 +7,7 @@
 
 import { useRef } from 'react'
 
+import { SubmitButton } from '@/components/SubmitButton'
 import type { MyEntry } from '@/entries/gate'
 
 interface EntrySwitcherProps {
@@ -38,7 +39,9 @@ export function EntrySwitcher({ entries, selectedId, action }: EntrySwitcherProp
                 })}
             </select>
             <noscript>
-                <button type="submit" className="rounded-lg bg-gold px-2 py-1 font-semibold text-on-gold">Switch</button>
+                <SubmitButton pendingLabel="Switching…" className="rounded-lg bg-gold px-2 py-1 font-semibold text-on-gold">
+                    Switch
+                </SubmitButton>
             </noscript>
         </form>
     )

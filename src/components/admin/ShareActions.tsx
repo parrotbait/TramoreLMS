@@ -37,8 +37,11 @@ export function CopyText({ text }: { readonly text: string }) {
 
 export function ImageActions({ src, fileName }: { readonly src: string; readonly fileName: string }) {
     const [message, setMessage] = useState<string | null>(null)
+    const [isBusy, setIsBusy] = useState(false)
 
     const share = async () => {
+        setMessage(null)
+        setIsBusy(true)
         try {
             const blob = await (await fetch(src)).blob()
             const file = new File([blob], fileName, { type: 'image/png' })
@@ -54,6 +57,8 @@ export function ImageActions({ src, fileName }: { readonly src: string; readonly
             }
 
             setMessage('Couldn’t share the image. Use Download instead.')
+        } finally {
+            setIsBusy(false)
         }
     }
 
@@ -64,12 +69,13 @@ export function ImageActions({ src, fileName }: { readonly src: string; readonly
             </a>
             <button
                 type="button"
+                disabled={isBusy}
                 onClick={() => {
                     void share()
                 }}
-                className="min-h-10 rounded-lg bg-maroon px-4 text-sm font-semibold text-on-maroon"
+                className="min-h-10 rounded-lg bg-maroon px-4 text-sm font-semibold text-on-maroon disabled:opacity-60"
             >
-                Share
+                {isBusy ? 'Preparing…' : 'Share'}
             </button>
             {message === null ? null : <span className="text-xs text-muted">{message}</span>}
         </div>

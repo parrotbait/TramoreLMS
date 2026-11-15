@@ -70,7 +70,7 @@ export default async function AdminHomePage() {
                     <Field label="Buy-back fee (€)" name="buybackFee" defaultValue="5" required />
                     <Field label="Prize (€)" name="prize" defaultValue="300" required />
                     <div className="flex items-end">
-                        <Submit>Create competition</Submit>
+                        <Submit pendingLabel="Loading fixtures…">Create competition</Submit>
                     </div>
                 </form>
             </Card>

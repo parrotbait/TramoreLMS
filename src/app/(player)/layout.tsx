@@ -9,6 +9,7 @@ import { signOutAction } from '@/auth/actions'
 import { EntrySwitcher } from '@/components/EntrySwitcher'
 import { PaymentNag, UnpaidReminder } from '@/components/PaymentNag'
 import { SiteHeader } from '@/components/SiteHeader'
+import { SubmitButton } from '@/components/SubmitButton'
 import { payAction } from '@/payments/actions'
 import { selectEntryAction } from '@/player/actions'
 import { loadPlayerPage } from '@/player/load'
@@ -63,7 +64,9 @@ export default async function PlayerLayout({ children }: { readonly children: Re
                 <footer className="mx-auto flex max-w-md items-center justify-between gap-2 pt-4 text-xs text-muted">
                     <span className="truncate">Signed in as {page.session.email}</span>
                     <form action={signOutAction}>
-                        <button type="submit" className="min-h-9 rounded-lg border border-line px-3 font-semibold text-ink">Sign out</button>
+                        <SubmitButton pendingLabel="Signing out…" className="min-h-9 rounded-lg border border-line px-3 font-semibold text-ink">
+                            Sign out
+                        </SubmitButton>
                     </form>
                 </footer>
             </main>

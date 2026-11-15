@@ -46,7 +46,7 @@ export default async function EntriesPage({ params }: EntriesProps) {
                     />
                     <Field label="Note" name="note" placeholder="Paid at the clubhouse" />
                     <div>
-                        <Submit>Add player</Submit>
+                        <Submit pendingLabel="Adding and emailing…">Add player</Submit>
                     </div>
                 </form>
             </Card>
@@ -80,7 +80,7 @@ export default async function EntriesPage({ params }: EntriesProps) {
                                                 <form action={renameEntryAction.bind(null, entry.id)} className="space-y-2">
                                                     <Field label="New name" name="displayName" defaultValue={entry.displayName} required />
                                                     <ReasonField />
-                                                    <Submit>Rename</Submit>
+                                                    <Submit pendingLabel="Renaming…">Rename</Submit>
                                                 </form>
                                             </ActionPanel>
                                             <ActionPanel label={isBeforeWeekOne ? 'Withdraw or refund' : 'Withdraw'}>
@@ -95,7 +95,7 @@ export default async function EntriesPage({ params }: EntriesProps) {
                                                         )
                                                         : <p className="text-xs text-muted">No refunds after the Week 1 cut-off.</p>}
                                                     <ReasonField />
-                                                    <Submit tone="danger">Withdraw</Submit>
+                                                    <Submit tone="danger" pendingLabel="Withdrawing…">Withdraw</Submit>
                                                 </form>
                                             </ActionPanel>
                                             {canBuyBack
@@ -109,7 +109,7 @@ export default async function EntriesPage({ params }: EntriesProps) {
                                                                 defaultValue={buybackFee}
                                                             />
                                                             <Field label="Note" name="note" placeholder="Paid cash" />
-                                                            <Submit>Record buy-back</Submit>
+                                                            <Submit pendingLabel="Recording…">Record buy-back</Submit>
                                                         </form>
                                                     </ActionPanel>
                                                 )
@@ -123,7 +123,7 @@ export default async function EntriesPage({ params }: EntriesProps) {
                                                     </p>
                                                     <Field label="Type REMOVE to confirm" name="confirm" required />
                                                     <ReasonField />
-                                                    <Submit tone="danger">Remove details</Submit>
+                                                    <Submit tone="danger" pendingLabel="Removing…">Remove details</Submit>
                                                 </form>
                                             </ActionPanel>
                                         </div>

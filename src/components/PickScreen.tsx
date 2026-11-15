@@ -8,6 +8,7 @@
 import { useEffect, useOptimistic, useState, useTransition } from 'react'
 import type { ReactNode } from 'react'
 
+import { SubmitButton } from '@/components/SubmitButton'
 import type { FixtureOption, HistoryItem, PickScreenModel, TeamOption } from '@/view-models/pick-screen'
 
 import { TeamCrest } from './TeamCrest'
@@ -300,9 +301,12 @@ function BuybackBanner({ action, feeLabel }: { readonly action: () => Promise<vo
             <p className="mt-0.5 text-sm text-muted">
                 Pay {feeLabel} to get back in. Do it before the Week 2 cut-off. Your Week 1 team stays used.
             </p>
-            <button type="submit" className="mt-2 min-h-11 rounded-xl bg-maroon px-4 font-semibold text-on-maroon">
+            <SubmitButton
+                pendingLabel="Opening payment…"
+                className="mt-2 min-h-11 rounded-xl bg-maroon px-4 font-semibold text-on-maroon"
+            >
                 Buy back in for {feeLabel}
-            </button>
+            </SubmitButton>
         </form>
     )
 }

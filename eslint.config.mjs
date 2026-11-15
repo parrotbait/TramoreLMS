@@ -39,6 +39,20 @@ export default tseslint.config(
         },
     },
     {
+        // Button feedback rule (CLAUDE.md). A button that submits a form must be a
+        // SubmitButton, which shows a loading state. Only type="button" is allowed raw.
+        files: ['src/**/*.tsx'],
+        ignores: ['src/components/SubmitButton.tsx'],
+        rules: {
+            'no-restricted-syntax': ['error', {
+                selector: 'JSXOpeningElement[name.name=\'button\']'
+                    + ':not(:has(JSXAttribute[name.name=\'type\'][value.value=\'button\']))',
+                message: 'Use <SubmitButton> from @/components/SubmitButton for buttons that submit a form. '
+                    + 'A button with an onClick needs type="button" and its own visible feedback. See CLAUDE.md.',
+            }],
+        },
+    },
+    {
         files: ['**/__tests__/**', '**/*.test.ts'],
         rules: {
             '@typescript-eslint/no-non-null-assertion': 'off',

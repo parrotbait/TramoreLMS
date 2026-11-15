@@ -26,7 +26,7 @@ export default async function DemoPage() {
                 </p>
                 <form action={startDemoAction} className="flex flex-wrap items-end gap-3">
                     <Field label="Your name in the demo" name="name" defaultValue="Organiser" required />
-                    <Submit>Start a demo</Submit>
+                    <Submit pendingLabel="Starting…">Start a demo</Submit>
                 </form>
             </Card>
         )
@@ -77,7 +77,7 @@ export default async function DemoPage() {
                     <Field label="Name" name="name" required />
                     <Field label="Email" name="email" type="email" required />
                     <div className="flex items-end">
-                        <Submit tone="plain">Add guest</Submit>
+                        <Submit tone="plain" pendingLabel="Adding and emailing…">Add guest</Submit>
                     </div>
                 </form>
             </Card>
@@ -88,7 +88,7 @@ export default async function DemoPage() {
                     Guests with nothing else on the site are deleted too. Real competitions are not touched.
                 </p>
                 <form action={wipeDemoAction}>
-                    <Submit tone="danger">Wipe the demo</Submit>
+                    <Submit tone="danger" pendingLabel="Wiping…">Wipe the demo</Submit>
                 </form>
             </Card>
         </>

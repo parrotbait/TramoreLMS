@@ -7,6 +7,7 @@
 import { useActionState } from 'react'
 import type { ReactNode } from 'react'
 
+import { SubmitButton } from '@/components/SubmitButton'
 import { entryFieldMessage } from '@/payments/entry-rules'
 import type { EntryFormState } from '@/payments/actions'
 
@@ -22,7 +23,7 @@ const INITIAL: EntryFormState = {
 }
 
 export function EntryForm({ action, feeLabel }: EntryFormProps) {
-    const [state, formAction, isPending] = useActionState(action, INITIAL)
+    const [state, formAction] = useActionState(action, INITIAL)
     const nameError = state.errors.displayName === undefined ? null : entryFieldMessage(state.errors.displayName)
     const emailError = state.errors.email === undefined ? null : entryFieldMessage(state.errors.email)
 
@@ -55,13 +56,12 @@ export function EntryForm({ action, feeLabel }: EntryFormProps) {
                 />
             </Field>
 
-            <button
-                type="submit"
-                disabled={isPending}
+            <SubmitButton
+                pendingLabel="Opening payment…"
                 className="min-h-12 w-full rounded-xl bg-maroon font-bold text-on-maroon disabled:opacity-60"
             >
-                {isPending ? 'Opening payment…' : `Continue to pay ${feeLabel}`}
-            </button>
+                Continue to pay {feeLabel}
+            </SubmitButton>
         </form>
     )
 }

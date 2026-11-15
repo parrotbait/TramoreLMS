@@ -2,6 +2,7 @@
 //
 // The preview's control bar: shows the simulated time and moves it on.
 
+import { SubmitButton } from '@/components/SubmitButton'
 import { formatDublin } from '@/lib/format'
 import { finalWeekOf, getPreview } from '@/preview/store'
 import type { PreviewPhase } from '@/preview/store'
@@ -64,14 +65,13 @@ function ToolbarButton({ action, label, primary = false }: {
 }) {
     return (
         <form action={action}>
-            <button
-                type="submit"
+            <SubmitButton
                 className={`min-h-9 rounded-lg px-3 text-xs font-semibold ${
                     primary ? 'bg-maroon text-on-maroon' : 'border border-line bg-surface text-ink'
                 }`}
             >
                 {label}
-            </button>
+            </SubmitButton>
         </form>
     )
 }

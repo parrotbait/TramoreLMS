@@ -5,6 +5,8 @@
 
 import type { ReactNode } from 'react'
 
+import { SubmitButton } from '@/components/SubmitButton'
+
 export function Card({ title, children, actions }: {
     readonly title: string
     readonly children: ReactNode
@@ -77,7 +79,12 @@ export function MethodField() {
     )
 }
 
-export function Submit({ children, tone = 'primary' }: { readonly children: ReactNode; readonly tone?: 'primary' | 'plain' | 'danger' }) {
+export function Submit({ children, tone = 'primary', pendingLabel }: {
+    readonly children: ReactNode
+    readonly tone?: 'primary' | 'plain' | 'danger'
+    /** Shown while sending, for example “Saving…”. Defaults to “Working…”. */
+    readonly pendingLabel?: string
+}) {
     const toneClass = tone === 'primary'
         ? 'bg-maroon text-on-maroon'
         : tone === 'danger'
@@ -85,9 +92,12 @@ export function Submit({ children, tone = 'primary' }: { readonly children: Reac
             : 'border border-line bg-surface text-ink'
 
     return (
-        <button type="submit" className={`min-h-10 rounded-lg px-3 text-sm font-semibold ${toneClass}`}>
+        <SubmitButton
+            className={`min-h-10 rounded-lg px-3 text-sm font-semibold ${toneClass}`}
+            {...(pendingLabel === undefined ? {} : { pendingLabel })}
+        >
             {children}
-        </button>
+        </SubmitButton>
     )
 }
 

@@ -10,6 +10,7 @@ import { Suspense } from 'react'
 import { requireAdmin } from '@/admin/guard'
 import { signOutAction } from '@/auth/actions'
 import { AdminNotice } from '@/components/admin/AdminNotice'
+import { SubmitButton } from '@/components/SubmitButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,7 +30,9 @@ export default async function AdminLayout({ children }: { readonly children: Rea
                     </nav>
                     <form action={signOutAction} className="ml-auto flex items-center gap-2 text-xs">
                         <span className="opacity-90">{admin.email}</span>
-                        <button type="submit" className="rounded-lg border border-on-maroon/40 px-2 py-1 font-semibold">Sign out</button>
+                        <SubmitButton pendingLabel="Signing out…" className="rounded-lg border border-on-maroon/40 px-2 py-1 font-semibold">
+                            Sign out
+                        </SubmitButton>
                     </form>
                 </div>
             </header>

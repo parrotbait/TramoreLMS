@@ -5,6 +5,7 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
+import { SubmitButton } from '@/components/SubmitButton'
 import type { EntryGate, MyEntry } from '@/entries/gate'
 import { formatDublin, formatEuro } from '@/lib/format'
 
@@ -63,13 +64,13 @@ export function UnpaidReminder({ entries, payAction }: {
                         <p>You have another entry, “{entry.displayName}”, that isn’t paid yet.</p>
                         <form action={payAction}>
                             <input type="hidden" name="entryId" value={entry.entryId} />
-                            <button
-                                type="submit"
+                            <SubmitButton
+                                pendingLabel="Opening payment…"
                                 disabled={payAction === undefined}
                                 className="min-h-11 w-full rounded-xl bg-maroon font-bold text-on-maroon disabled:opacity-50"
                             >
                                 Pay {formatEuro(entry.entryFeeCents)} for “{entry.displayName}”
-                            </button>
+                            </SubmitButton>
                         </form>
                     </li>
                 )
@@ -94,13 +95,13 @@ function FinishPayment({ entry, payAction }: {
             {holdUntil === null ? null : <p>We keep the name for you until {holdUntil}.</p>}
             <form action={payAction}>
                 <input type="hidden" name="entryId" value={entry.entryId} />
-                <button
-                    type="submit"
+                <SubmitButton
+                    pendingLabel="Opening payment…"
                     disabled={payAction === undefined}
                     className="min-h-12 w-full rounded-xl bg-maroon font-bold text-on-maroon disabled:opacity-50"
                 >
                     Pay {fee}
-                </button>
+                </SubmitButton>
             </form>
         </Notice>
     )

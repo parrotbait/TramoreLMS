@@ -77,7 +77,7 @@ export default async function WeekPage({ params }: WeekProps) {
                         />
                         <ReasonField />
                         <div>
-                            <Submit>Move cut-off</Submit>
+                            <Submit pendingLabel="Moving…">Move cut-off</Submit>
                         </div>
                     </form>
                 </ActionPanel>
@@ -112,7 +112,7 @@ export default async function WeekPage({ params }: WeekProps) {
                                         <Field label="Result" name="result" required placeholder="2-1, void or clear" hint="Home score first. The feed never undoes this." />
                                         <ReasonField />
                                         <div className="flex items-end">
-                                            <Submit>Save result</Submit>
+                                            <Submit pendingLabel="Saving…">Save result</Submit>
                                         </div>
                                     </form>
                                 </ActionPanel>
@@ -146,7 +146,7 @@ export default async function WeekPage({ params }: WeekProps) {
                                                 </select>
                                             </label>
                                             <ReasonField />
-                                            <Submit>Save</Submit>
+                                            <Submit pendingLabel="Saving…">Save</Submit>
                                         </form>
                                     </ActionPanel>
                                 </div>

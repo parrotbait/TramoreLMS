@@ -9,6 +9,8 @@
 
 import { useEffect, useRef } from 'react'
 
+import { SubmitButton } from '@/components/SubmitButton'
+
 interface AutoSignInProps {
     readonly action: (formData: FormData) => Promise<void>
     readonly token: string
@@ -33,9 +35,12 @@ export function AutoSignIn({ action, token, next }: AutoSignInProps) {
             <input type="hidden" name="token" value={token} />
             {next === undefined ? null : <input type="hidden" name="next" value={next} />}
             <p className="text-sm text-muted" aria-live="polite">Signing you in…</p>
-            <button type="submit" className="min-h-12 w-full rounded-xl border border-line bg-surface font-semibold text-ink">
+            <SubmitButton
+                pendingLabel="Signing in…"
+                className="min-h-12 w-full rounded-xl border border-line bg-surface font-semibold text-ink"
+            >
                 Not moving? Sign in
-            </button>
+            </SubmitButton>
         </form>
     )
 }

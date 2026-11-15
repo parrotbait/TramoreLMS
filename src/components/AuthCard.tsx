@@ -5,6 +5,7 @@
 import Image from 'next/image'
 import type { ReactNode } from 'react'
 
+import { SubmitButton } from '@/components/SubmitButton'
 import { brand } from '@/theme/tokens'
 
 export function AuthCard({ title, children }: { readonly title: string; readonly children: ReactNode }) {
@@ -47,9 +48,9 @@ export function SignInForm({ action, purpose, next, buttonLabel }: {
                 inputMode="email"
                 className="min-h-12 w-full rounded-xl border border-line px-3 text-base"
             />
-            <button type="submit" className="min-h-12 w-full rounded-xl bg-maroon font-bold text-on-maroon">
+            <SubmitButton pendingLabel="Sending…" className="min-h-12 w-full rounded-xl bg-maroon font-bold text-on-maroon">
                 {buttonLabel}
-            </button>
+            </SubmitButton>
         </form>
     )
 }
