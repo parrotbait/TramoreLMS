@@ -34,7 +34,7 @@ export default async function VerifyPage({ searchParams }: VerifyPageProps) {
     }
 
     return (
-        <AuthCard title="Signing in">
+        <AuthCard title="Just a moment">
             <AutoSignIn action={verifyLinkAction} token={params.token} next={params.next} />
         </AuthCard>
     )

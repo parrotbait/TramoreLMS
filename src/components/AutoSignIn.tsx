@@ -3,7 +3,8 @@
 // The sign-in form on the magic-link page, submitted by itself as soon as the
 // page loads. Email scanners that fetch the link without running JavaScript
 // never submit it, so they cannot use up the single-use link. The button is
-// there if JavaScript is off.
+// the only message on the page. It says “Signing in…” while it sends, and it
+// says “Sign in” if JavaScript is off, so a person can press it.
 
 'use client'
 
@@ -34,12 +35,11 @@ export function AutoSignIn({ action, token, next }: AutoSignInProps) {
         <form ref={form} action={action} className="space-y-3">
             <input type="hidden" name="token" value={token} />
             {next === undefined ? null : <input type="hidden" name="next" value={next} />}
-            <p className="text-sm text-muted" aria-live="polite">Signing you in…</p>
             <SubmitButton
                 pendingLabel="Signing in…"
                 className="min-h-12 w-full rounded-xl border border-line bg-surface font-semibold text-ink"
             >
-                Not moving? Sign in
+                Sign in
             </SubmitButton>
         </form>
     )
