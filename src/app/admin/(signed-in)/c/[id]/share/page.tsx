@@ -10,6 +10,7 @@ import { CopyText, ImageActions } from '@/components/admin/ShareActions'
 import { Card } from '@/components/admin/ui'
 import { loadShareData, weekParam } from '@/share/load'
 import { reminderText } from '@/share/models'
+import { latestRevealedWeek } from '@/view-models/picks-reveal'
 
 interface SharePageProps {
     readonly params: Promise<{ readonly id: string }>
@@ -21,7 +22,11 @@ export default async function SharePage({ params, searchParams }: SharePageProps
     const { data, settings } = await loadShareData(id)
     const { rows, currentWeek, standings } = data
     const highest = rows.weeks.length
-    const pickWeek = weekParam((await searchParams).week, currentWeek ?? 1, highest)
+    const requestedWeek = (await searchParams).week
+    // The reminder is for the week still open for picks. The picks image is for the
+    // latest week that has locked, as picks stay hidden until the cut-off.
+    const reminderWeek = weekParam(requestedWeek, currentWeek ?? 1, highest)
+    const pickWeek = weekParam(requestedWeek, latestRevealedWeek(data.context, currentWeek ?? 1), highest)
     const settledWeek = Math.max(1, standings.lastSettledWeek)
     const base = `/admin/c/${id}/share`
     const stamp = rows.competition.name.replace(/[^\w-]+/g, '-')
@@ -30,10 +35,10 @@ export default async function SharePage({ params, searchParams }: SharePageProps
         <>
             <CompetitionNav competitionId={id} name={rows.competition.name} currentWeek={currentWeek} />
 
-            <Card title={`Reminder for Week ${pickWeek}`}>
+            <Card title={`Reminder for Week ${reminderWeek}`}>
                 <p className="text-sm text-muted">Counts only, no names. Paste it into the WhatsApp group before the cut-off.</p>
-                <CopyText text={reminderText(data.context, settings, pickWeek)} />
-                <WeekLinks base={base} current={pickWeek} highest={currentWeek ?? 1} />
+                <CopyText text={reminderText(data.context, settings, reminderWeek)} />
+                <WeekLinks base={base} current={reminderWeek} highest={currentWeek ?? 1} />
             </Card>
 
             <Card title={`Standings after Week ${settledWeek}`}>
@@ -48,6 +53,7 @@ export default async function SharePage({ params, searchParams }: SharePageProps
                 <p className="text-sm text-muted">Players per team, no names. Shows nothing until the cut-off.</p>
                 <SharePreview src={`${base}/picks.png?week=${pickWeek}`} alt={`Week ${pickWeek} picks`} />
                 <ImageActions src={`${base}/picks.png?week=${pickWeek}`} fileName={`${stamp}-week-${pickWeek}-picks.png`} />
+                <WeekLinks base={base} current={pickWeek} highest={currentWeek ?? 1} />
             </Card>
         </>
     )

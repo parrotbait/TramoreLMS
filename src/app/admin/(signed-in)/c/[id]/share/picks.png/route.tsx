@@ -10,6 +10,7 @@ import { loadImageAssets } from '@/share/assets'
 import { IMAGE_WIDTH, picksImage } from '@/share/images'
 import { loadShareData, weekParam } from '@/share/load'
 import { picksImageModel } from '@/share/models'
+import { latestRevealedWeek } from '@/view-models/picks-reveal'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,7 +18,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     await requireAdmin()
     const { id } = await params
     const { data, settings } = await loadShareData(id)
-    const week = weekParam(new URL(request.url).searchParams.get('week'), data.currentWeek ?? 1, data.rows.weeks.length)
+    const week = weekParam(
+        new URL(request.url).searchParams.get('week'),
+        latestRevealedWeek(data.context, data.currentWeek ?? 1),
+        data.rows.weeks.length,
+    )
 
     const model = picksImageModel(data.context, settings, week)
     const crestPaths = model.teams.flatMap((team) => {
