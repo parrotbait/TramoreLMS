@@ -9,6 +9,29 @@ import { formatDublin } from '@/lib/format'
 import { fixtureLabelOf, fixtureScoreLabel, fixturesOf, teamNameOf } from './context'
 import type { ViewContext } from './context'
 
+/**
+ * The week the Picks page opens on: the latest week whose cut-off has passed,
+ * as that is the latest week with picks to show. Week N + 1 opens at the Week N
+ * cut-off, and its picks stay hidden until its own cut-off. Before any cut-off
+ * it falls back to the latest open week, which shows nothing yet.
+ */
+export function latestRevealedWeek(context: ViewContext, latestOpenWeek: number): number {
+    const passed = context.state.weeks
+        .filter((week) => {
+            return week.number <= latestOpenWeek
+                && week.cutoffAt !== null
+                && context.now.getTime() >= week.cutoffAt.getTime()
+        })
+        .map((week) => {
+            return week.number
+        })
+    if (passed.length === 0) {
+        return latestOpenWeek
+    }
+
+    return Math.max(...passed)
+}
+
 export interface RevealedPlayer {
     readonly name: string
     readonly auto: boolean

@@ -76,6 +76,60 @@ export interface PickScreenModel {
     readonly buybackAvailable: boolean
 }
 
+export interface WeekTab {
+    readonly weekNumber: number
+    /** For example “Week 1 · pending”. */
+    readonly label: string
+}
+
+export interface PickScreenWeeks {
+    /** The week to show. */
+    readonly weekNumber: number
+    /** Empty when there is nothing to switch to. */
+    readonly tabs: readonly WeekTab[]
+}
+
+/**
+ * Week N + 1 opens at the Week N cut-off, so a player can pick ahead as soon
+ * as their own result is through (Decision 20). While Week N still has games
+ * to play, the screen also offers a tab back to it, to see the locked pick and
+ * how it is going. The latest week is shown unless the player asks for the
+ * previous one. A postponed game doesn't count as a game to play, so one
+ * called-off match never keeps the tab up for weeks.
+ */
+export function pickScreenWeeks(
+    context: ViewContext,
+    entryId: EntryId,
+    latestWeek: number,
+    requestedWeek: number | null,
+): PickScreenWeeks {
+    const previousWeek = latestWeek - 1
+    const standing = context.standings.entries.get(entryId)
+    const previous = standing?.weeks.find((entryWeek) => {
+        return entryWeek.week === previousWeek
+    })
+    const previousCutoff = context.state.weeks.find((week) => {
+        return week.number === previousWeek
+    })?.cutoffAt
+    const hasLocked = previousCutoff !== null
+        && previousCutoff !== undefined
+        && context.now.getTime() >= previousCutoff.getTime()
+    const hasGamesToPlay = fixturesOf(context, previousWeek).some((fixture) => {
+        return fixture.override === undefined && fixture.state.kind === 'scheduled'
+    })
+    if (previousWeek < 1 || previous === undefined || !hasLocked || !hasGamesToPlay) {
+        return { weekNumber: latestWeek, tabs: [] }
+    }
+
+    return {
+        weekNumber: requestedWeek === previousWeek ? previousWeek : latestWeek,
+        tabs: [
+            { weekNumber: previousWeek, label: `Week ${previousWeek} · ${previous.outcome}` },
+            { weekNumber: latestWeek, label: `Week ${latestWeek}` },
+        ],
+    }
+}
+
 export function buildPickScreen(context: ViewContext, entryId: EntryId, weekNumber: number): PickScreenModel {
     const { state, standings, now } = context
     const week = state.weeks.find((candidate) => {

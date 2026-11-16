@@ -25,7 +25,10 @@ export function EntrySwitcher({ entries, selectedId, action }: EntrySwitcherProp
     return (
         <form ref={form} action={action} className="mx-auto flex max-w-md items-center gap-2 px-4 pb-2 text-sm text-on-maroon">
             <label htmlFor="entry-switcher" className="shrink-0">Playing as</label>
+            {/* The key rebuilds the select when the entry changes. React 19 resets a form's fields to their
+                defaultValue after an action, which would put the old player back. */}
             <select
+                key={selectedId}
                 id="entry-switcher"
                 name="entryId"
                 defaultValue={selectedId}

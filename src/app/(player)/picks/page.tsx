@@ -2,7 +2,7 @@
 
 import { PicksReveal } from '@/components/PicksReveal'
 import { loadPlayerPage } from '@/player/load'
-import { buildPicksReveal } from '@/view-models/picks-reveal'
+import { buildPicksReveal, latestRevealedWeek } from '@/view-models/picks-reveal'
 
 interface PicksPageProps {
     readonly searchParams: Promise<{ readonly week?: string }>
@@ -26,7 +26,7 @@ export default async function PicksPage({ searchParams }: PicksPageProps) {
     const requested = Number((await searchParams).week)
     const weekNumber = Number.isInteger(requested) && requested >= 1 && requested <= page.currentWeek
         ? requested
-        : page.currentWeek
+        : latestRevealedWeek(page.context, page.currentWeek)
     const weekLinks = Array.from({ length: page.currentWeek }, (_, index) => {
         return { weekNumber: index + 1, href: `/picks?week=${index + 1}` }
     })
