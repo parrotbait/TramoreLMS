@@ -2,8 +2,7 @@
 //
 // Everyone's picks for a week, grouped by team. Read-only.
 
-import Link from 'next/link'
-
+import { PendingLink } from '@/components/PendingLink'
 import type { PicksRevealModel, RevealedPlayer } from '@/view-models/picks-reveal'
 
 import { TeamCrest } from './TeamCrest'
@@ -89,7 +88,7 @@ function WeekTabs({ current, links }: { readonly current: number; readonly links
             {links.map((link) => {
                 const isCurrent = link.weekNumber === current
                 return (
-                    <Link
+                    <PendingLink
                         key={link.weekNumber}
                         href={link.href}
                         aria-current={isCurrent ? 'page' : undefined}
@@ -98,7 +97,7 @@ function WeekTabs({ current, links }: { readonly current: number; readonly links
                         }`}
                     >
                         W{link.weekNumber}
-                    </Link>
+                    </PendingLink>
                 )
             })}
         </nav>

@@ -1,6 +1,6 @@
 // Created by Claude driven by Eddie Long on 2026-11-04.
 
-import Link from 'next/link'
+import { PendingLink } from '@/components/PendingLink'
 
 export function CompetitionNav({ competitionId, name, currentWeek }: {
     readonly competitionId: string
@@ -22,9 +22,9 @@ export function CompetitionNav({ competitionId, name, currentWeek }: {
             <nav className="flex flex-wrap gap-2 text-sm">
                 {links.map((link) => {
                     return (
-                        <Link key={link.href} href={link.href} className="rounded-lg border border-line bg-surface px-3 py-1.5 font-semibold">
+                        <PendingLink key={link.href} href={link.href} className="rounded-lg border border-line bg-surface px-3 py-1.5 font-semibold">
                             {link.label}
-                        </Link>
+                        </PendingLink>
                     )
                 })}
             </nav>

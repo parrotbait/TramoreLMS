@@ -1,7 +1,6 @@
 // Created by Claude driven by Eddie Long on 2026-11-03.
 
-import Link from 'next/link'
-
+import { PendingLink } from '@/components/PendingLink'
 import { PickScreen } from '@/components/PickScreen'
 import { formatEuro } from '@/lib/format'
 import { buyBackForEntryAction, pickTeamAction } from '@/player/actions'
@@ -67,7 +66,7 @@ function WeekTabs({ tabs, selectedWeek, latestWeek }: {
                 const isSelected = tab.weekNumber === selectedWeek
                 const href = tab.weekNumber === latestWeek ? '/pick' : `/pick?week=${tab.weekNumber}`
                 return (
-                    <Link
+                    <PendingLink
                         key={tab.weekNumber}
                         href={href}
                         replace
@@ -77,7 +76,7 @@ function WeekTabs({ tabs, selectedWeek, latestWeek }: {
                         }`}
                     >
                         {tab.label}
-                    </Link>
+                    </PendingLink>
                 )
             })}
         </nav>

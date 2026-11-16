@@ -74,6 +74,7 @@ describe('decideActivation (Decision 18)', () => {
         takenKeys: new Set(),
         ownKey: displayNameKey('Seán M'),
         isBuybackOpen: true,
+        isAlreadyBoughtBack: false,
     }
 
     it('activates a pending entry under its own name', () => {
@@ -110,6 +111,13 @@ describe('decideActivation (Decision 18)', () => {
         expect(decideActivation({ ...base, kind: 'buyback', entryStatus: 'active', isBuybackOpen: false })).toEqual({
             kind: 'buyback',
             alert: 'lateBuyback',
+        })
+    })
+
+    it('records a second buy-back without applying it again, and tells the admin', () => {
+        expect(decideActivation({ ...base, kind: 'buyback', entryStatus: 'active', isAlreadyBoughtBack: true })).toEqual({
+            kind: 'recordOnly',
+            alert: 'duplicateBuyback',
         })
     })
 

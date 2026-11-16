@@ -281,6 +281,7 @@ export async function confirmPayment(environment: PaymentEnvironment, command: P
             })),
             ownKey: entry.displayNameKey,
             isBuybackOpen,
+            isAlreadyBoughtBack: entry.boughtBack,
         })
 
         if (decision.kind === 'alreadyRecorded') {
@@ -499,5 +500,7 @@ function paymentAlertMessage(alert: ActivationAlert, originalName: string, final
             return `“${originalName}” paid the buy-back after the Week 2 cut-off. It has been applied. Check this is what you want.`
         case 'buybackForInactiveEntry':
             return `“${originalName}” paid a buy-back, but their entry is not active. Refund the buy-back.`
+        case 'duplicateBuyback':
+            return `“${originalName}” paid the buy-back twice. Refund one of the payments.`
     }
 }

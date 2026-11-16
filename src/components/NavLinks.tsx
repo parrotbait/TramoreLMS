@@ -2,8 +2,9 @@
 
 'use client'
 
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+
+import { PendingLink } from '@/components/PendingLink'
 
 export interface NavLink {
     readonly href: string
@@ -18,7 +19,7 @@ export function NavLinks({ links }: { readonly links: readonly NavLink[] }) {
             {links.map((link) => {
                 const isActive = pathname === link.href
                 return (
-                    <Link
+                    <PendingLink
                         key={link.href}
                         href={link.href}
                         aria-current={isActive ? 'page' : undefined}
@@ -27,7 +28,7 @@ export function NavLinks({ links }: { readonly links: readonly NavLink[] }) {
                         }`}
                     >
                         {link.label}
-                    </Link>
+                    </PendingLink>
                 )
             })}
         </nav>

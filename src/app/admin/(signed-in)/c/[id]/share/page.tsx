@@ -3,11 +3,10 @@
 // Everything for the WhatsApp group: the reminder text, the status image and
 // the picks image (Decisions 11 and 16).
 
-import Link from 'next/link'
-
 import { CompetitionNav } from '@/components/admin/CompetitionNav'
 import { CopyText, ImageActions } from '@/components/admin/ShareActions'
 import { Card } from '@/components/admin/ui'
+import { PendingLink } from '@/components/PendingLink'
 import { loadShareData, weekParam } from '@/share/load'
 import { reminderText } from '@/share/models'
 import { latestRevealedWeek } from '@/view-models/picks-reveal'
@@ -81,13 +80,13 @@ function WeekLinks({ base, current, highest }: {
             {Array.from({ length: highest }, (_, index) => {
                 const number = index + 1
                 return (
-                    <Link
+                    <PendingLink
                         key={number}
                         href={`${base}?week=${number}`}
                         className={`rounded-lg border px-2 py-1 ${number === current ? 'border-maroon bg-maroon text-on-maroon' : 'border-line bg-surface'}`}
                     >
                         W{number}
-                    </Link>
+                    </PendingLink>
                 )
             })}
         </nav>

@@ -19,9 +19,14 @@
      with a ✓. It fades after 5 seconds. An error stays until it is dismissed.
    - A player action that moves to another page is confirmed by that page.
    - A player action that stays on the page shows a toast, like “Saved ✓” on the pick screen.
-4. **Never move the layout.** `SubmitButton` keeps the button’s width while it is pending.
+4. **Links that change page show it too.**
+   - Links in a navigation bar or tab row use `<PendingLink>` from `@/components/PendingLink`.
+     It pulses and dims while the next page loads. A plain `<Link>` is fine for text links inside a page.
+   - Every route group has a `loading.tsx`, so a page change shows a spinner at once.
+     Add one when you add a route group.
+5. **Never move the layout.** `SubmitButton` keeps the button’s width while it is pending.
    Keep that when you add new states.
-5. **Respect reduced motion.** Use `motion-reduce:animate-none` on any new spinner.
+6. **Respect reduced motion.** Use `motion-reduce:animate-none` on any new spinner.
 
 Write the error text in plain words. Say what to do next.
 

@@ -31,6 +31,8 @@ export interface ActivationInput {
     readonly takenKeys: ReadonlySet<string>
     readonly ownKey: string
     readonly isBuybackOpen: boolean
+    /** The entry has already had a buy-back applied. */
+    readonly isAlreadyBoughtBack: boolean
 }
 
 export type ActivationAlert =
@@ -39,6 +41,7 @@ export type ActivationAlert =
     | 'duplicatePayment'
     | 'lateBuyback'
     | 'buybackForInactiveEntry'
+    | 'duplicateBuyback'
 
 export type ActivationDecision =
     /** Stripe sent this event before. Nothing to do. */
@@ -56,6 +59,10 @@ export function decideActivation(input: ActivationInput): ActivationDecision {
     if (input.kind === 'buyback') {
         if (input.entryStatus !== 'active') {
             return { kind: 'recordOnly', alert: 'buybackForInactiveEntry' }
+        }
+
+        if (input.isAlreadyBoughtBack) {
+            return { kind: 'recordOnly', alert: 'duplicateBuyback' }
         }
 
         return { kind: 'buyback', alert: input.isBuybackOpen ? null : 'lateBuyback' }
