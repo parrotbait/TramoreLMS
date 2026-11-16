@@ -10,7 +10,7 @@ import {
     usedTeamIds,
 } from '@/engine'
 import type { EntryId, Fixture, TeamId, Verdict } from '@/engine'
-import { formatDublin } from '@/lib/format'
+import { dublinDayKey, formatDublin, formatDublinDay, formatDublinTime } from '@/lib/format'
 
 import { fixtureLabelOf, fixtureScoreLabel, fixturesOf, teamNameOf } from './context'
 import type { ViewContext } from './context'
@@ -39,10 +39,20 @@ export interface TeamOption {
 
 export interface FixtureOption {
     readonly id: string
-    readonly kickoffLabel: string
+    /** For example “15:00”. The day is on the group it sits in. */
+    readonly timeLabel: string
     readonly scoreLabel: string | null
     readonly home: TeamOption
     readonly away: TeamOption
+}
+
+/** The games on one Irish day, in kick-off order. */
+export interface FixtureDay {
+    /** For example “2026-11-28”. */
+    readonly key: string
+    /** For example “Sat 28 Nov”. */
+    readonly label: string
+    readonly fixtures: readonly FixtureOption[]
 }
 
 export interface HistoryItem {
@@ -71,6 +81,8 @@ export interface PickScreenModel {
     readonly currentPick: CurrentPick | null
     readonly needsRepick: boolean
     readonly fixtures: readonly FixtureOption[]
+    /** The same games, grouped by Irish day. */
+    readonly days: readonly FixtureDay[]
     readonly postponedLabels: readonly string[]
     readonly history: readonly HistoryItem[]
     readonly buybackAvailable: boolean
@@ -172,6 +184,19 @@ export function buildPickScreen(context: ViewContext, entryId: EntryId, weekNumb
         return fixture.state.kind === 'postponed' && fixture.state.at.getTime() <= now.getTime()
     }
 
+    const shownFixtures = weekFixtures.filter((fixture) => {
+        return status !== 'open' || !isPostponedNow(fixture)
+    })
+    const optionOf = (fixture: Fixture): FixtureOption => {
+        return {
+            id: fixture.id,
+            timeLabel: formatDublinTime(fixture.kickoffAt),
+            scoreLabel: fixtureScoreLabel(fixture),
+            home: optionFor(fixture.homeTeamId),
+            away: optionFor(fixture.awayTeamId),
+        }
+    }
+
     return {
         weekNumber,
         plMatchday: context.plMatchdayOf(weekNumber),
@@ -188,19 +213,8 @@ export function buildPickScreen(context: ViewContext, entryId: EntryId, weekNumb
                 auto: pick.source !== 'player',
             },
         needsRepick: status === 'open' && pickNeedsReplacing(state, now, entryId, weekNumber),
-        fixtures: weekFixtures
-            .filter((fixture) => {
-                return status !== 'open' || !isPostponedNow(fixture)
-            })
-            .map((fixture) => {
-                return {
-                    id: fixture.id,
-                    kickoffLabel: formatDublin(fixture.kickoffAt),
-                    scoreLabel: fixtureScoreLabel(fixture),
-                    home: optionFor(fixture.homeTeamId),
-                    away: optionFor(fixture.awayTeamId),
-                }
-            }),
+        fixtures: shownFixtures.map(optionOf),
+        days: groupByDay(shownFixtures, optionOf),
         postponedLabels: status === 'open'
             ? weekFixtures.filter(isPostponedNow).map((fixture) => {
                 return fixtureLabelOf(context, fixture)
@@ -264,4 +278,29 @@ function statusOf(
     }
 
     return 'out'
+}
+
+/**
+ * Groups games by Irish day, in kick-off order, so the screen can show each
+ * date once above the games played on it. A match at 00:30 Irish time belongs
+ * to the new day, whatever the time is in UTC.
+ */
+function groupByDay(
+    fixtures: readonly Fixture[],
+    optionOf: (fixture: Fixture) => FixtureOption,
+): readonly FixtureDay[] {
+    const days: { key: string; label: string; fixtures: FixtureOption[] }[] = []
+    for (const fixture of fixtures) {
+        const key = dublinDayKey(fixture.kickoffAt)
+        const day = days.find((candidate) => {
+            return candidate.key === key
+        })
+        if (day === undefined) {
+            days.push({ key, label: formatDublinDay(fixture.kickoffAt), fixtures: [optionOf(fixture)] })
+        } else {
+            day.fixtures.push(optionOf(fixture))
+        }
+    }
+
+    return days
 }

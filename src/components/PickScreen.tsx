@@ -9,7 +9,7 @@ import { useEffect, useOptimistic, useState, useTransition } from 'react'
 import type { ReactNode } from 'react'
 
 import { SubmitButton } from '@/components/SubmitButton'
-import type { FixtureOption, HistoryItem, PickScreenModel, TeamOption } from '@/view-models/pick-screen'
+import type { FixtureDay, FixtureOption, HistoryItem, PickScreenModel, TeamOption } from '@/view-models/pick-screen'
 
 import { TeamCrest } from './TeamCrest'
 import { WeekBanner } from './WeekBanner'
@@ -81,12 +81,12 @@ export function PickScreen({ model, pickAction, buybackAction, buybackFeeLabel }
 
             {model.fixtures.length > 0 && model.status !== 'out'
                 ? (
-                    <ul className="space-y-2">
-                        {model.fixtures.map((fixture) => {
+                    <ul className="space-y-3">
+                        {model.days.map((day) => {
                             return (
-                                <FixtureRow
-                                    key={fixture.id}
-                                    fixture={fixture}
+                                <DayGroup
+                                    key={day.key}
+                                    day={day}
                                     selectedTeamId={optimisticTeamId}
                                     isLocked={model.status !== 'open'}
                                     onChoose={choose}
@@ -196,6 +196,33 @@ function Panel({ title, children, tone = 'plain', crest }: {
     )
 }
 
+/** One box for a day: the date once at the top, then every game played on it. */
+function DayGroup({ day, selectedTeamId, isLocked, onChoose }: {
+    readonly day: FixtureDay
+    readonly selectedTeamId: string | null
+    readonly isLocked: boolean
+    readonly onChoose: (team: TeamOption) => void
+}) {
+    return (
+        <li className="overflow-hidden rounded-2xl border border-line bg-surface">
+            <h3 className="bg-subtle px-3 py-2 text-base font-bold">{day.label}</h3>
+            <ul className="divide-y divide-line">
+                {day.fixtures.map((fixture) => {
+                    return (
+                        <FixtureRow
+                            key={fixture.id}
+                            fixture={fixture}
+                            selectedTeamId={selectedTeamId}
+                            isLocked={isLocked}
+                            onChoose={onChoose}
+                        />
+                    )
+                })}
+            </ul>
+        </li>
+    )
+}
+
 function FixtureRow({ fixture, selectedTeamId, isLocked, onChoose }: {
     readonly fixture: FixtureOption
     readonly selectedTeamId: string | null
@@ -203,10 +230,10 @@ function FixtureRow({ fixture, selectedTeamId, isLocked, onChoose }: {
     readonly onChoose: (team: TeamOption) => void
 }) {
     return (
-        <li className="rounded-2xl border border-line bg-surface p-2">
-            <div className="flex items-center justify-between px-1 pb-1.5 text-xs text-muted">
-                <span>{fixture.kickoffLabel}</span>
-                {fixture.scoreLabel !== null ? <span className="font-semibold text-ink">{fixture.scoreLabel}</span> : null}
+        <li className="p-2">
+            <div className="flex items-center justify-between px-1 pb-1.5">
+                <span className="text-sm font-bold tabular-nums">{fixture.timeLabel}</span>
+                {fixture.scoreLabel !== null ? <span className="text-sm font-semibold text-ink">{fixture.scoreLabel}</span> : null}
             </div>
             <div className="flex items-stretch gap-2">
                 <TeamButton
