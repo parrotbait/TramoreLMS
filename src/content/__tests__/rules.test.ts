@@ -36,6 +36,22 @@ describe('rulesContent', () => {
         expect(teamOrder(['Bournemouth', 'Arsenal'])).toEqual(['Arsenal', 'Bournemouth'])
     })
 
+    it('makes no promise about refunds, as the organiser decides each one', () => {
+        const text = allText(rulesContent(settings)).toLowerCase()
+
+        expect(text).not.toContain('refund')
+        expect(text).not.toContain('money back')
+    })
+
+    it('ends with how the game ends, with no catch-all section after it', () => {
+        const titles = rulesContent(settings).sections.map((section) => {
+            return section.title
+        })
+
+        expect(titles.at(-1)).toBe('How it ends')
+        expect(titles).not.toContain('Anything else')
+    })
+
     it('keeps sentences short and uses smart quotes', () => {
         const content = rulesContent(settings)
         for (const line of content.sections.flatMap((section) => {

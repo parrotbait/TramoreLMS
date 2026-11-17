@@ -2,7 +2,7 @@
 
 How to run the site day to day, fix common problems, start a new season and hand the site over. The rules of the game are in `PLAN.md` section 2 and on `/rules`.
 
-Last checked: 2026-11-04.
+Last checked: 2026-11-17.
 
 ---
 
@@ -10,14 +10,14 @@ Last checked: 2026-11-04.
 
 | Service | What it does | Account |
 |---|---|---|
-| Vercel (Hobby) | Hosts the site at `https://tramorelastmanstanding.vercel.app`. Deploys each push to `main`. Runs a daily backup cron. | Move to the club (section 9) |
+| Vercel (Hobby) | Hosts the site at `https://tramorelastmanstanding.vercel.app`. Deploys each push to `main`. Runs a daily cron that only calls the tick if cron-job.org has missed it. It does not back up data. | Move to the club (section 9) |
 | Neon Postgres | The database, `last-man-standing-db`, London region. Connected to the Vercel project for Production only. | Move to the club |
 | cron-job.org | Calls `/api/cron/tick` every 10 minutes. This is the main clock. | Move to the club |
 | Stripe | Card payments through Stripe Checkout. Sends webhooks to `/api/stripe/webhook`. | Club-owned if possible |
 | football-data.org | Fixtures and results. This is the primary feed. | Move to the club |
 | FPL API | The cross-check for results. It needs no account. | None |
 | Gmail | Sends sign-in, welcome and reminder emails from `tramoreathleticsecretary@gmail.com`, using an app password. | The club |
-| GitHub | The code, in the private repo `parrotbait/TramoreLMS`. | Move to the club |
+| GitHub | The code, in the private repo `parrotbait/TramoreLMS`. Also runs the database backup every 6 hours (section 6, “Backups”). | Move to the club |
 
 ### What the tick does
 
@@ -110,7 +110,7 @@ Every override needs a reason. It goes in the audit log (Admin → Audit). The f
 | Record a cash buy-back | Entries → the player → Record buy-back. This works only for players out in Week 1, before the Week 2 cut-off. |
 | Rename a player | Entries → the player → Rename. Names are unique and up to 20 characters. |
 | Withdraw a player | Entries → the player → Withdraw, with a reason. They stop from the next week that hasn't locked. |
-| Refund a player | Withdraw them and tick Refund. This works only before the Week 1 cut-off (rule 7). Stripe payments are refunded through Stripe. For cash and Revolut, the site only records the refund, so hand the money back yourself. |
+| Refund a player | Withdraw them and tick Refund. This tool works only before the Week 1 cut-off. The public rules make no promise about refunds, so you decide each one. Stripe payments are refunded through Stripe. For cash and Revolut, the site only records the refund, so hand the money back yourself. |
 | Delete someone's details on request | Entries → the player → Remove details. Type REMOVE and give a reason. This removes their email, and their entries become “Removed player”. |
 | Export payments for the treasurer | Entries → Download CSV. |
 | Show “€X raised” on the home page | Settings → tick “Show “€X raised for the club” on the home page”. The figure is paid money, less Stripe fees, less the prize. It shows only when it is above €0. |
@@ -158,6 +158,51 @@ A demo never takes money, and it never sends alert emails. The cron and the feed
 
 - **Try a change locally first** against the local database. `pnpm tick --no-feed --now <time>` runs a tick at a pretend time. It only runs against a local database.
 
+### Backups
+
+A GitHub Actions workflow, `.github/workflows/database-backup.yml`, backs up the Neon database **every 6 hours**. Each run:
+
+1. Dumps the database with `pg_dump`. Sign-in tokens are left out.
+2. **Restores the dump into a scratch Postgres and compares the row counts.** If the restore fails or the counts differ, the run fails. A backup that cannot be restored is not kept.
+3. Encrypts the dump with your public key (`age`) and stores it as a workflow artifact for **30 days**.
+
+Neon also keeps its own short history, which can undo a mistake from the last few hours. Check how far back your Neon plan goes in the Neon console under Backup & Restore. That history is in the same Neon account as the database. The GitHub backups are the copy that does not depend on Neon.
+
+**One-time setup**
+
+1. Make a key pair on your own computer. Install `age` (`brew install age`), then run `age-keygen -o lms-backup-key.txt`. It prints a public key that starts with `age1`.
+2. Store `lms-backup-key.txt` somewhere safe and **outside GitHub**: a password manager, and a copy with a second person at the club. Without it a backup cannot be opened. With it, anyone can read the backups.
+3. In GitHub, go to the repo → Settings → Secrets and variables → Actions → New repository secret. Add:
+   - `BACKUP_AGE_PUBLIC_KEY`: the `age1…` public key from step 1.
+   - `BACKUP_DATABASE_URL`: the **direct (unpooled)** Neon connection string. Find it in the Neon console under Connect, with “Pooled connection” switched off. A pooled URL does not work for `pg_dump`.
+4. Go to the repo → Actions → Database backup → Run workflow. Wait for a green tick. This proves the secrets, the restore check and the upload all work.
+
+**Check it is working.** Open the repo → Actions → Database backup. There should be a green run in the last 6 hours. A failed run emails the person who last changed the schedule. Look at this page once a week during the season, and after any change to the secrets.
+
+**Restore** (to recover from a disaster, or to move to a new database):
+
+1. Open the repo → Actions → the run you want → download its artifact. Unzip it to get the `.dump.age` file.
+2. Decrypt it:
+
+   ```
+   age --decrypt --identity lms-backup-key.txt --output backup.dump lms-backup-….dump.age
+   ```
+
+3. Make an empty database, then restore into it. Use the direct Neon URL of the **new** database:
+
+   ```
+   pg_restore --no-owner --no-privileges --dbname '<new database URL>' backup.dump
+   ```
+
+4. Point `POSTGRES_URL` in Vercel at the new database and redeploy. Players sign in again with a link, because sign-in tokens are not in the backup.
+5. Check `/admin`: the competitions, entries and payments are there. Then check Stripe against the payments list.
+
+Anything that happened after the last backup is lost, up to 6 hours. Stripe keeps its own record of every payment. After a restore, compare Stripe's payments list (Payments, since the backup time) with the Entries page. Add anyone who paid but is missing with **Add player**, and tell them. The tick's safety net can't find these, because it only checks payments it already has a pending row for.
+
+**Practise a restore once** before the season starts, into a free scratch Neon database. A restore you have never tried is a guess. `scripts/backup-database.sh` does the same check locally: `scripts/backup-database.sh <source-url> backup.dump <scratch-server-admin-url>`.
+
+**Privacy.** Backups hold emails. The privacy page promises that emails are deleted 90 days after a competition ends. Backups are kept for 30 days, so an email can survive up to 30 days longer in an old backup. Keep the 30 days, or shorten it, and say so on the privacy page.
+
 ---
 
 ## 7. When something goes wrong
@@ -168,6 +213,7 @@ A demo never takes money, and it never sends alert emails. The cron and the feed
 | No emails arrive | Check that `EMAIL_TRANSPORT=gmail` is set. Check the app password, which stops working if the Google password changes. Gmail allows about 500 emails a day. Players should check their spam folder. Vercel → Logs shows “Reminder email failed”. |
 | A player paid but isn't in | Stripe → Developers → Webhooks → the endpoint → failed events. Resend them. The tick also checks pending payments every 10 minutes. |
 | Results don't come in | Check that `FOOTBALL_DATA_TOKEN` is set and valid. The tick JSON shows `feed: { error: … }` when it fails. Use fixture overrides until the feed is back. |
+| The backup workflow is red, or has not run | GitHub → Actions → Database backup → the failed run. A message about secrets means `BACKUP_DATABASE_URL` or `BACKUP_AGE_PUBLIC_KEY` is missing or wrong. A “restore check failed” message means do not trust that run's backup, and tell the developer. A connection error after a Neon password change means updating `BACKUP_DATABASE_URL`. |
 | The site shows “Something went wrong” | Vercel → Logs for the error. Check that Neon is up and `POSTGRES_URL` is set. |
 | A player says their sign-in link doesn't work | Links work once, for 30 minutes. Reminder links last until the cut-off. Ask them to get a new link at `/signin`. Some email apps open links early. The sign-in page needs a tap or JavaScript, so that doesn't use the link up. |
 
@@ -197,6 +243,7 @@ Also:
 - Set `ADMIN_EMAILS` to the new organisers' addresses.
 - Make a new `CRON_SECRET`. Update it in Vercel and cron-job.org together.
 - Make a new Gmail app password if the old one was ever shared.
+- Move the backup: add the new owner's secrets (`BACKUP_DATABASE_URL`, `BACKUP_AGE_PUBLIC_KEY`) to the repo they will own, and give them the `age` private key. Run the backup workflow once and check it is green.
 - Give the new organiser this runbook and `PLAN.md`.
 
 ---
@@ -210,6 +257,7 @@ Do this once, on the live site, before you share the link. Tick each line.
 - [ ] All variables in section 2 are set in Vercel for Production. `EMAIL_TRANSPORT` is `gmail`. `ENABLE_PREVIEW` is not set.
 - [ ] Stripe is in live mode. The webhook endpoint is `https://tramorelastmanstanding.vercel.app/api/stripe/webhook`, with these events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired` and `checkout.session.async_payment_failed`.
 - [ ] All migrations are applied to Neon (section 6).
+- [ ] The database backup has run green (section 6, “Backups”), and you have restored one into a scratch database at least once.
 - [ ] cron-job.org calls `/api/cron/tick` every 10 minutes with the `Authorization: Bearer <CRON_SECRET>` header. The last run returned 200.
 
 ### The competition

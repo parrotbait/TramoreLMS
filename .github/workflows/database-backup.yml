@@ -1,0 +1,93 @@
+# Created by Claude driven by Eddie Long on 2026-11-17.
+#
+# Backs up the Neon database every 6 hours, and proves each backup restores.
+# The dump is encrypted, so the file in GitHub is useless without the private
+# key, which is kept offline. See RUNBOOK.md, “Backups”, for the one-time
+# setup and how to restore.
+#
+# Needs two repository secrets (Settings → Secrets and variables → Actions):
+#   BACKUP_DATABASE_URL    the direct (unpooled) Neon connection string
+#   BACKUP_AGE_PUBLIC_KEY  the public key from `age-keygen`, starting “age1”
+
+name: Database backup
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SOURCE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      AGE_PUBLIC_KEY: ${{ secrets.BACKUP_AGE_PUBLIC_KEY }}
+      SCRATCH_URL: postgres://postgres:scratch@localhost:55432/postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the secrets are set
+        run: |
+          if [[ -z "$SOURCE_URL" || -z "$AGE_PUBLIC_KEY" ]]; then
+            echo "::error::Set BACKUP_DATABASE_URL and BACKUP_AGE_PUBLIC_KEY in the repository secrets. See RUNBOOK.md, Backups."
+            exit 1
+          fi
+
+      - name: Find the database version
+        id: version
+        run: |
+          number=$(psql "$SOURCE_URL" --no-psqlrc --tuples-only --no-align --command "show server_version_num")
+          echo "major=$((number / 10000))" >> "$GITHUB_OUTPUT"
+
+      # pg_dump must be the same version as the server, or newer.
+      - name: Install matching Postgres tools and age
+        env:
+          MAJOR: ${{ steps.version.outputs.major }}
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y "postgresql-client-${MAJOR}" age
+          echo "/usr/lib/postgresql/${MAJOR}/bin" >> "$GITHUB_PATH"
+
+      - name: Start a scratch Postgres to test the restore
+        env:
+          MAJOR: ${{ steps.version.outputs.major }}
+        run: |
+          docker run --detach --name scratch --env POSTGRES_PASSWORD=scratch --publish 55432:5432 "postgres:${MAJOR}"
+          for _ in $(seq 1 30); do
+            if pg_isready --host localhost --port 55432; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::The scratch Postgres did not start."
+          exit 1
+
+      - name: Back up, then restore into the scratch Postgres and compare
+        run: scripts/backup-database.sh "$SOURCE_URL" "$RUNNER_TEMP/backup.dump" "$SCRATCH_URL"
+
+      - name: Encrypt
+        id: encrypt
+        run: |
+          file="lms-backup-$(date -u +%Y%m%dT%H%M%SZ).dump.age"
+          age --recipient "$AGE_PUBLIC_KEY" --output "$file" "$RUNNER_TEMP/backup.dump"
+          echo "file=$file" >> "$GITHUB_OUTPUT"
+
+      # 30 days, so a removed player's email doesn't live on in a backup for long.
+      - name: Keep the encrypted backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.encrypt.outputs.file }}
+          path: ${{ steps.encrypt.outputs.file }}
+          retention-days: 30
+          if-no-files-found: error

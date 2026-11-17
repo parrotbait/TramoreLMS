@@ -34,7 +34,7 @@ Status: plan agreed on 2026-10-31. Built by 2026-11-04. Day-to-day running and t
 | 15 | Simulator | Three modes: random (with a seed), interactive and scenario files. Scenario files double as regression tests. Real fixtures by default. `--synthetic` works offline. |
 | 16 | WhatsApp images | A weekly status image, with names, and a picks-revealed image, with counts per team and no names. Reminders never name individuals. |
 | 17 | Privacy | Display names are unique per competition, case-insensitive, at most 20 characters, and the admin can edit them. Emails are visible to admins only. There is no opt-in for future competitions (removed on 2026-11-04). Every player’s email is deleted 90 days after their last competition ends. Players can be deleted on request. |
-| 18 | Entry flow | A pending entry holds the display name for 1 hour, matching the Stripe Checkout session expiry. Only paid entries can pick. Buy-back reactivates the same entry. Full refunds only before the Week 1 cut-off. |
+| 18 | Entry flow | A pending entry holds the display name for 1 hour, matching the Stripe Checkout session expiry. Only paid entries can pick. Buy-back reactivates the same entry. Refunds are not promised in the rules: the organiser decides each one (changed 2026-11-17). |
 | 19 | Visibility | Public pages are home, entry, rules and privacy. Standings, everyone’s picks and the archive need sign-in with an entry in that competition. Private pages are `noindex`. |
 | 20 | Settlement | A result is accepted automatically when football-data.org shows the match as finished and FPL agrees. Each player can pick for the next week as soon as their own result is “through”. “Out” is provisional until the whole week settles, because of rule 6. |
 | 21 | Team crests | A club crest is shown beside every team name: pick buttons, history, everyone’s picks, standings and the WhatsApp images. The crests come from football-data.org and are stored in `public/crests/`, never hotlinked. If a crest file is missing, a neutral badge with the club’s initials is shown. Crests are trademarks, so check use with the club. |
@@ -59,8 +59,8 @@ This is the meaning of the rules. The page text is in `src/content/rules.ts`, in
    - If only one player is left, they win {prize}.
    - If everyone still in goes out in the same week, they all stay in and play on.
    - If more than one player is still in after matchday 38, they share {prize} equally.
-7. **Refunds.** Full refund before the Week 1 cut-off. No refunds after that.
-8. **The organiser’s decision is final** on anything these rules do not cover.
+7. **Refunds.** Not in the public rules (removed 2026-11-17). The organiser decides each refund case by case.
+8. **Anything else.** Not on the public rules page (removed 2026-11-17, as it did not read well). The organiser decides anything the rules do not cover.
 
 All money after the prize goes to Tramore Athletic.
 

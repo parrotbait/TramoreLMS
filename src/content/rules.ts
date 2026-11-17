@@ -82,19 +82,6 @@ export function rulesContent(settings: RulesSettings): RulesContent {
                     `If more than one player is left after the last week of the season, they share ${prize}.`,
                 ],
             },
-            {
-                title: 'Refunds',
-                lines: [
-                    'You can get your money back before the Week 1 cut-off.',
-                    'No refunds after that.',
-                ],
-            },
-            {
-                title: 'Anything else',
-                lines: [
-                    'If the rules don’t cover something, the organiser decides.',
-                ],
-            },
         ],
         teamOrder: teamOrder(settings.teamNames),
         closing: 'All money after the prize goes to Tramore Athletic.',

@@ -453,7 +453,7 @@ export async function withdrawEntryAction(entryId: string, formData: FormData) {
     const fromWeek = withdrawalWeek(toGameState(rows).weeks, now)
     const wantsRefund = formData.get('refund') === 'on'
     if (wantsRefund && fromWeek > 1) {
-        back(page, 'error', 'Refunds are only possible before the Week 1 cut-off (rule 7).')
+        back(page, 'error', 'Refunds can only be recorded here before the Week 1 cut-off.')
     }
 
     const paid = await db.select().from(payments).where(and(eq(payments.entryId, entryId), eq(payments.status, 'paid')))
