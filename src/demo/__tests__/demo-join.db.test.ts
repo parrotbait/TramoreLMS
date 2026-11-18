@@ -234,7 +234,7 @@ describe('paying in a demo', () => {
         })).toEqual([])
     })
 
-    it('never signs the browser in from the Stripe return, so an email must be proved by its link', async () => {
+    it('signs the browser in after the Stripe return, so a new guest never has to leave for their email', async () => {
         const demoId = await seedDemo()
         const { joinDemo, pay } = rig()
         const joined = await joinDemo(demoId, 'Aoife', 'aoife@example.ie')
@@ -242,7 +242,39 @@ describe('paying in a demo', () => {
 
         const personId = await claimCheckoutSignIn(database.db, joined.sessionId, joined.token, NOW)
 
-        expect(personId).toBeNull()
+        const [entry] = await database.db.select().from(entries).where(eq(entries.id, joined.entryId))
+        expect(personId).toBe(entry?.personId)
+        expect(await claimCheckoutSignIn(database.db, joined.sessionId, joined.token, NOW)).toBeNull()
+    })
+
+    it('does not sign anyone in as a real player who already has an entry in the real competition', async () => {
+        const realId = await seedCompetition(database.db)
+        const demoId = await seedDemo()
+        const { environment, joinDemo, pay } = rig()
+        const real = await startEntry(environment(), { displayName: 'Real Rita', email: 'rita@example.ie' })
+        expect(real.kind).toBe('checkout')
+        const [ritasEntry] = await database.db.select().from(entries).where(eq(entries.competitionId, realId))
+        expect(ritasEntry?.displayName).toBe('Real Rita')
+
+        // Someone types Rita's address on the demo link, and pays with the test card.
+        const joined = await joinDemo(demoId, 'Not Rita', 'rita@example.ie')
+        await pay(joined.entryId, joined.sessionId)
+
+        expect(await claimCheckoutSignIn(database.db, joined.sessionId, joined.token, NOW)).toBeNull()
+    })
+
+    it('still lets a guest who is only in demos sign in after paying', async () => {
+        const demoId = await seedDemo()
+        const { joinDemo, pay } = rig()
+        const first = await joinDemo(demoId, 'Aoife', 'aoife@example.ie')
+        await pay(first.entryId, first.sessionId)
+        await claimCheckoutSignIn(database.db, first.sessionId, first.token, NOW)
+
+        // The same person tries a second demo entry. They have only ever been in demos.
+        const second = await joinDemo(demoId, 'Aoife Two', 'aoife@example.ie')
+        await pay(second.entryId, second.sessionId)
+
+        expect(await claimCheckoutSignIn(database.db, second.sessionId, second.token, NOW)).not.toBeNull()
     })
 })
 

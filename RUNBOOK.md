@@ -134,7 +134,8 @@ Admin → Demo runs a pretend competition on the live site. It has 20 bot player
 5. To let people play along on their own phone, share the **Invite link** on the Demo page. It works like the real sign-up:
    - They open the link and see the same form as `/enter`: a name and an email.
    - They go to the Stripe page and pay with the **test card** `4242 4242 4242 4242`, any date in the future, any 3 numbers. The link page shows them these.
-   - They land on “You’re in the demo!” and get a welcome email with a sign-in link. They are **not** signed in on that browser until they use the link, so nobody can sign in as someone else's email.
+   - They land on “You’re in the demo!”, already signed in on that browser, like a real player. They also get a welcome email with a sign-in link for their other devices. They never have to leave for their email.
+   - **Nobody checks the email address.** If someone mistypes it, they still play on that browser, but they get no emails and can't sign in elsewhere. Fix it by adding them again with **Add a guest**. One safety rule: if the address already belongs to a real player (someone with an entry in a real competition), they are **not** signed in automatically. That person uses the emailed link, so nobody ends up in a real player's account.
    - Up to 30 people can join. The count shows on the Demo page.
    - The link **only works while Stripe is in test mode** (`STRIPE_SECRET_KEY` starts with `sk_test_`). When Stripe is live the link is switched off, so a demo can never charge a real card. Use **Add a guest** instead.
    - **Wiping the demo makes the old link stop working.** A new demo has a new link.

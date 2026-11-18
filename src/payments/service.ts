@@ -268,15 +268,17 @@ export async function claimCheckoutSignIn(
     checkoutToken: string,
     now: Date,
 ): Promise<string | null> {
-    // A demo payment is free, so it proves nothing about who owns the email. Anyone could
-    // type a real player's address and be signed in as them. Demo guests use the emailed link.
+    // A demo payment is free, so it proves nothing about who owns the email. A new address is
+    // fine: nobody else is that person yet. If the address already belongs to a real player,
+    // the browser is not signed in, so nobody lands in their account. That person uses the
+    // emailed link.
     const [demoCheck] = await db
-        .select({ isDemo: competitions.isDemo })
+        .select({ isDemo: competitions.isDemo, personId: entries.personId })
         .from(payments)
         .innerJoin(entries, eq(entries.id, payments.entryId))
         .innerJoin(competitions, eq(competitions.id, entries.competitionId))
         .where(eq(payments.stripeSessionId, sessionId))
-    if (demoCheck?.isDemo === true) {
+    if (demoCheck?.isDemo === true && await hasRealEntry(db, demoCheck.personId)) {
         return null
     }
 
@@ -296,6 +298,18 @@ export async function claimCheckoutSignIn(
 
     const [entry] = await db.select({ personId: entries.personId }).from(entries).where(eq(entries.id, claimed.entryId))
     return entry?.personId ?? null
+}
+
+/** Has this person entered a real competition, whatever happened to the entry? */
+async function hasRealEntry(db: Database, personId: string): Promise<boolean> {
+    const [row] = await db
+        .select({ id: entries.id })
+        .from(entries)
+        .innerJoin(competitions, eq(competitions.id, entries.competitionId))
+        .where(and(eq(entries.personId, personId), eq(competitions.isDemo, false)))
+        .limit(1)
+
+    return row !== undefined
 }
 
 type PaidCommand = Extract<WebhookCommand, { kind: 'paid' }>
