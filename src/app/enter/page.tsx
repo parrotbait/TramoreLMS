@@ -30,7 +30,7 @@ export default async function EnterPage() {
             <p className="text-sm text-muted">
                 Entry is {fee}. You pay by card on the next page. There is no password. We email you a link to sign in.
             </p>
-            <EntryForm action={startEntryAction} feeLabel={fee} />
+            <EntryForm action={startEntryAction} submitLabel={`Continue to pay ${fee}`} pendingLabel="Opening payment…" />
             <p className="text-xs text-muted">
                 By entering you agree to the <Link href="/rules" className="underline">rules</Link> and the{' '}
                 <Link href="/privacy" className="underline">privacy notice</Link>.

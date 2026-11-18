@@ -34,6 +34,7 @@ import { playerNames } from '../../sim/season'
 import { matchesFromCache } from '../../sim/season-cache'
 
 import { competitionNow } from './clock'
+import { BOT_DOMAIN } from './constants'
 import {
     afterGamesClock,
     botPicks,
@@ -47,7 +48,6 @@ import {
 } from './plan'
 import type { DemoStage } from './plan'
 
-const BOT_DOMAIN = '@demo.invalid'
 const DAY_MS = 24 * 60 * 60 * 1000
 const DEMO_NOTE = 'Demo'
 
@@ -81,6 +81,21 @@ export async function demoStatus(db: Database): Promise<DemoStatus | null> {
     const state = toGameState(rows)
 
     return { competition: demo, now, stage: demoStage(rows.weeks, computeStandings(state, now), now) }
+}
+
+/** Players who have joined and paid, the presenter included. Bots do not count. */
+export async function countDemoGuests(db: Database, demoId: string): Promise<number> {
+    const [row] = await db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(entries)
+        .innerJoin(people, eq(people.id, entries.personId))
+        .where(and(
+            eq(entries.competitionId, demoId),
+            eq(entries.status, 'active'),
+            sql`${people.email} not like ${`%${BOT_DOMAIN}`}`,
+        ))
+
+    return row?.total ?? 0
 }
 
 /** Starts a demo with 20 bots and the presenter. Returns its id. */

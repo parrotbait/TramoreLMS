@@ -131,11 +131,19 @@ Admin → Demo runs a pretend competition on the live site. It has 20 bot player
    - close picks (auto-picks run, and everyone's picks show)
    - play the games (random results by team strength, and the bots pick for the next week)
 4. To steer the story, change a result on the demo's Week page with a fixture override before you play the games.
-5. To let someone play along on their own phone, use **Add a guest**. They get an email with a link to play, which works for 24 hours. After that they sign in at `/signin` with that email.
+5. To let people play along on their own phone, share the **Invite link** on the Demo page. It works like the real sign-up:
+   - They open the link and see the same form as `/enter`: a name and an email.
+   - They go to the Stripe page and pay with the **test card** `4242 4242 4242 4242`, any date in the future, any 3 numbers. The link page shows them these.
+   - They land on “You’re in the demo!” and get a welcome email with a sign-in link. They are **not** signed in on that browser until they use the link, so nobody can sign in as someone else's email.
+   - Up to 30 people can join. The count shows on the Demo page.
+   - The link **only works while Stripe is in test mode** (`STRIPE_SECRET_KEY` starts with `sk_test_`). When Stripe is live the link is switched off, so a demo can never charge a real card. Use **Add a guest** instead.
+   - **Wiping the demo makes the old link stop working.** A new demo has a new link.
+
+   To add one person yourself, use **Add a guest**. They get an email with a link to play, which works for 24 hours. After that they sign in at `/signin` with that email.
 6. The emails are real, so you can test them. Add yourself as a guest with another address to see the invite. The “3 hours before the cut-off” step sends the real reminder email to every human in the demo who hasn't picked. Bots are never emailed.
 7. Press **Wipe the demo** when you're done. It deletes the demo, its bots, every demo entry and any guest with nothing else on the site. Then you can start again.
 
-A demo never takes money, and it never sends alert emails. The cron and the feeds leave it alone. Real players never see it, and it never shows on `/`, `/rules` or `/enter`. The only emails are the guest invite, sign-in links and the reminder from the Next step button. If you also have a real entry, use “Playing as” to switch between them.
+A demo never takes real money, and it never sends alert emails or the “New player” email to the admins. Test payments from the invite link show in the Stripe test dashboard. The cron and the feeds leave it alone. Real players never see it, and it never shows on `/`, `/rules` or `/enter`. The only emails are the guest invite, sign-in links and the reminder from the Next step button. If you also have a real entry, use “Playing as” to switch between them.
 
 ---
 

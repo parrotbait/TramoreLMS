@@ -11,9 +11,16 @@ import { SubmitButton } from '@/components/SubmitButton'
 import { entryFieldMessage } from '@/payments/entry-rules'
 import type { EntryFormState } from '@/payments/actions'
 
+type Problem = NonNullable<EntryFormState['problem']>
+
 interface EntryFormProps {
     readonly action: (previous: EntryFormState, formData: FormData) => Promise<EntryFormState>
-    readonly feeLabel: string
+    /** The button, for example “Continue to pay €10.00”. */
+    readonly submitLabel: string
+    /** The button while it sends, for example “Opening payment…”. */
+    readonly pendingLabel: string
+    /** Wording for a problem, where the usual text does not fit. The demo uses this. */
+    readonly problemText?: Partial<Record<Problem, string>>
 }
 
 const INITIAL: EntryFormState = {
@@ -22,14 +29,16 @@ const INITIAL: EntryFormState = {
     problem: null,
 }
 
-export function EntryForm({ action, feeLabel }: EntryFormProps) {
+export function EntryForm({ action, submitLabel, pendingLabel, problemText = {} }: EntryFormProps) {
     const [state, formAction] = useActionState(action, INITIAL)
     const nameError = state.errors.displayName === undefined ? null : entryFieldMessage(state.errors.displayName)
     const emailError = state.errors.email === undefined ? null : entryFieldMessage(state.errors.email)
 
     return (
         <form action={formAction} className="space-y-4" noValidate>
-            {state.problem === null ? null : <Problem problem={state.problem} />}
+            {state.problem === null
+                ? null
+                : <ProblemNotice problem={state.problem} override={problemText[state.problem]} />}
 
             <Field id="displayName" label="Name on the standings" hint="For example “Seán M”. Up to 20 characters." error={nameError}>
                 <input
@@ -57,10 +66,10 @@ export function EntryForm({ action, feeLabel }: EntryFormProps) {
             </Field>
 
             <SubmitButton
-                pendingLabel="Opening payment…"
+                pendingLabel={pendingLabel}
                 className="min-h-12 w-full rounded-xl bg-maroon font-bold text-on-maroon disabled:opacity-60"
             >
-                Continue to pay {feeLabel}
+                {submitLabel}
             </SubmitButton>
         </form>
     )
@@ -84,12 +93,12 @@ function Field({ id, label, hint, error, children }: {
     )
 }
 
-function Problem({ problem }: { readonly problem: NonNullable<EntryFormState['problem']> }) {
-    const message = problem === 'nameTaken'
+function ProblemNotice({ problem, override }: { readonly problem: Problem; readonly override: string | undefined }) {
+    const message = override ?? (problem === 'nameTaken'
         ? 'Someone already has that name. Try adding a letter or a nickname.'
         : problem === 'closed'
             ? 'Entries have closed.'
-            : 'We couldn’t open the payment page. Please try again in a minute.'
+            : 'We couldn’t open the payment page. Please try again in a minute.')
 
     return <p role="alert" className="rounded-xl border-2 border-maroon bg-subtle px-3 py-2 text-sm font-semibold">{message}</p>
 }

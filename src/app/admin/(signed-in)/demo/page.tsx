@@ -5,13 +5,18 @@
 
 import Link from 'next/link'
 
+import { siteUrl } from '@/auth/session'
+import { CopyText } from '@/components/admin/ShareActions'
 import { Card, Field, Stat, Submit } from '@/components/admin/ui'
 import { getDatabase } from '@/db/client'
 import { addDemoGuestAction, nextDemoStepAction, startDemoAction, wipeDemoAction } from '@/demo/actions'
+import { MAX_DEMO_GUESTS } from '@/demo/constants'
+import { joinCodeFor, joinSecret } from '@/demo/join-code'
 import { nextStepLabel } from '@/demo/plan'
 import type { DemoStage } from '@/demo/plan'
-import { demoStatus } from '@/demo/service'
+import { countDemoGuests, demoStatus } from '@/demo/service'
 import { formatDublin } from '@/lib/format'
+import { isStripeTestMode } from '@/payments/stripe'
 
 export default async function DemoPage() {
     const status = await demoStatus(getDatabase())
@@ -35,6 +40,11 @@ export default async function DemoPage() {
     const { competition, now, stage } = status
     const label = nextStepLabel(stage)
     const base = `/admin/c/${competition.id}`
+    const secret = joinSecret()
+    const inviteLink = secret === null
+        ? null
+        : new URL(`/demo/join?code=${joinCodeFor(competition.id, secret)}`, siteUrl()).toString()
+    const guestCount = await countDemoGuests(getDatabase(), competition.id)
 
     return (
         <>
@@ -65,6 +75,10 @@ export default async function DemoPage() {
                     To steer the story, change a result on the demo’s Week page before you play the games.
                     If you also have a real entry, use “Playing as” to switch to the demo.
                 </p>
+            </Card>
+
+            <Card title="Invite link">
+                <InviteLink link={inviteLink} isTestMode={isStripeTestMode(process.env['STRIPE_SECRET_KEY'])} guestCount={guestCount} />
             </Card>
 
             <Card title="Add a guest">
@@ -104,4 +118,38 @@ function stageText(stage: DemoStage): string {
         case 'over':
             return 'Over'
     }
+}
+
+function InviteLink({ link, isTestMode, guestCount }: {
+    readonly link: string | null
+    readonly isTestMode: boolean
+    readonly guestCount: number
+}) {
+    if (link === null) {
+        return <p className="text-sm text-muted">Set CRON_SECRET to at least 32 characters to make an invite link.</p>
+    }
+
+    if (!isTestMode) {
+        return (
+            <p className="text-sm font-semibold">
+                The invite link is switched off, because Stripe is not in test mode.
+                A demo must never charge a real card. Use “Add a guest” below instead.
+            </p>
+        )
+    }
+
+    return (
+        <>
+            <p className="text-sm text-muted">
+                Share this link. People sign up like real players: the same form, then the Stripe page.
+                They pay with a Stripe test card, so no real money is taken. They land in this demo.
+                The page shows them the test card number.
+            </p>
+            <CopyText text={link} label="Copy link" />
+            <p className="text-xs text-muted">
+                {guestCount} {guestCount === 1 ? 'person has' : 'people have'} joined, you included. The most is {MAX_DEMO_GUESTS}.
+                The link stops working when you wipe the demo.
+            </p>
+        </>
+    )
 }

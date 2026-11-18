@@ -96,6 +96,14 @@ export function verifyWebhook(rawBody: string, signature: string, webhookSecret:
     return Stripe.webhooks.constructEvent(rawBody, signature, webhookSecret)
 }
 
+/**
+ * Is Stripe in test mode? The demo link takes payments only when it is, so a
+ * demo can never charge a real card.
+ */
+export function isStripeTestMode(key: string | undefined): boolean {
+    return /^(sk|rk)_test_/.test(key ?? '')
+}
+
 export function gatewayFromEnv(): PaymentGateway {
     const key = process.env['STRIPE_SECRET_KEY'] ?? ''
     if (key === '') {

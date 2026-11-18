@@ -3,26 +3,23 @@
 'use server'
 
 import { and, eq } from 'drizzle-orm'
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
-import { currentSession, siteUrl } from '@/auth/session'
+import { currentSession } from '@/auth/session'
 import { getDatabase } from '@/db/client'
 import { toGameState } from '@/db/game-state'
 import { loadCompetitionRows } from '@/db/load'
 import { entries } from '@/db/schema'
 import { competitionNow } from '@/demo/clock'
 import { recordDemoBuyback } from '@/demo/service'
-import { mailerFromEnv } from '@/email/mailer'
 import { computeStandings, isBuybackAvailable } from '@/engine'
 import { isUuid } from '@/lib/ids'
 
-import { CHECKOUT_COOKIE } from './checkout-cookie'
+import { goToCheckout, paymentEnvironment } from './checkout-start'
 import { holdExpiresAt } from './entry-rules'
 import type { EntryFieldError } from './entry-rules'
 import { beginCheckout, startEntry } from './service'
-import type { CheckoutStart, PaymentEnvironment } from './service'
-import { gatewayFromEnv } from './stripe'
+import type { CheckoutStart } from './service'
 
 export interface EntryFormState {
     readonly values: { readonly displayName: string; readonly email: string }
@@ -96,21 +93,6 @@ export async function buyBackAction(formData: FormData) {
     await goToCheckout(await beginCheckout(paymentEnvironment(), entry.id, 'buyback'))
 }
 
-/**
- * Keeps the checkout token in this browser, then opens Stripe. Coming back
- * from Stripe with it signs this browser in (/enter/complete).
- */
-async function goToCheckout(checkout: CheckoutStart): Promise<never> {
-    (await cookies()).set(CHECKOUT_COOKIE, checkout.checkoutToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/enter',
-        maxAge: 2 * 60 * 60,
-    })
-    redirect(checkout.url)
-}
-
 /** The entry, if it belongs to the signed-in person. */
 async function ownEntry(entryId: string) {
     const session = await currentSession()
@@ -128,15 +110,4 @@ async function ownEntry(entryId: string) {
         .where(and(eq(entries.id, entryId), eq(entries.personId, session.personId)))
 
     return entry ?? null
-}
-
-function paymentEnvironment(): PaymentEnvironment {
-    return {
-        db: getDatabase(),
-        gateway: gatewayFromEnv(),
-        mailer: mailerFromEnv(),
-        now: new Date(),
-        siteUrl: siteUrl(),
-        adminEmails: process.env['ADMIN_EMAILS'],
-    }
 }

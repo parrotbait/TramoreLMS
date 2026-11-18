@@ -7,7 +7,7 @@
 
 import { useState } from 'react'
 
-export function CopyText({ text }: { readonly text: string }) {
+export function CopyText({ text, label = 'Copy reminder' }: { readonly text: string; readonly label?: string }) {
     const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
 
     return (
@@ -29,7 +29,7 @@ export function CopyText({ text }: { readonly text: string }) {
                 }}
                 className="min-h-10 rounded-lg bg-maroon px-4 text-sm font-semibold text-on-maroon"
             >
-                {state === 'copied' ? 'Copied ✓' : state === 'failed' ? 'Copy failed: select the text and copy it' : 'Copy reminder'}
+                {state === 'copied' ? 'Copied ✓' : state === 'failed' ? 'Copy failed: select the text and copy it' : label}
             </button>
         </div>
     )

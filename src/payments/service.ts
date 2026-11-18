@@ -9,7 +9,7 @@
 //   failCheckout     the webhook: an abandoned or failed Checkout
 //   expireHolds      the tick: free names whose hold ran out
 
-import { and, eq, gte, inArray, lte, ne, sql } from 'drizzle-orm'
+import { and, eq, gte, inArray, lte, ne, notLike, sql } from 'drizzle-orm'
 
 import { createLink, findPersonById } from '@/auth/store'
 import { hashToken, newToken } from '@/auth/tokens'
@@ -18,6 +18,7 @@ import { toGameState } from '@/db/game-state'
 import { loadCompetitionRows } from '@/db/load'
 import type { Executor } from '@/db/load'
 import { alerts, competitions, entries, payments, people, weeks } from '@/db/schema'
+import { BOT_DOMAIN, MAX_DEMO_GUESTS } from '@/demo/constants'
 import type { Mailer } from '@/email/mailer'
 import { welcomeEmail } from '@/email/templates'
 import { areEntriesOpen, isBuybackWindowOpen } from '@/engine'
@@ -88,9 +89,50 @@ export type StartEntryResult =
     | { readonly kind: 'nameTaken' }
     | { readonly kind: 'closed' }
 
+/**
+ * A demo that takes entries through its invite link. The payment is a Stripe
+ * test payment, so the link must only be offered while Stripe is in test mode.
+ * `null` if there is no such demo, or it already has the most guests.
+ */
+async function demoCompetitionForEntries(
+    db: Executor,
+    competitionId: string,
+    now: Date,
+    maxGuests: number,
+): Promise<OpenCompetition | null> {
+    const [demo] = await db
+        .select({ id: competitions.id, name: competitions.name, entryFeeCents: competitions.entryFeeCents })
+        .from(competitions)
+        .where(and(eq(competitions.id, competitionId), eq(competitions.isDemo, true)))
+    if (demo === undefined) {
+        return null
+    }
+
+    // Free the names of people who never paid, so they do not fill the demo.
+    await expireHolds(db, now, demo.id)
+    const [guests] = await db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(entries)
+        .innerJoin(people, eq(people.id, entries.personId))
+        .where(and(
+            eq(entries.competitionId, demo.id),
+            inArray(entries.status, ['pending', 'active']),
+            notLike(people.email, `%${BOT_DOMAIN}`),
+        ))
+
+    return (guests?.total ?? 0) >= maxGuests ? null : demo
+}
+
+export interface StartEntryOptions {
+    /** Enter this demo instead of the real competition. */
+    readonly demoCompetitionId?: string
+    readonly maxDemoGuests?: number
+}
+
 export async function startEntry(
     environment: PaymentEnvironment,
     input: { readonly displayName: string; readonly email: string },
+    options: StartEntryOptions = {},
 ): Promise<StartEntryResult> {
     const form = validateEntryForm(input)
     if (!form.ok) {
@@ -99,7 +141,14 @@ export async function startEntry(
 
     const { db, now } = environment
     const created = await db.transaction(async (tx) => {
-        const competition = await openCompetitionForEntries(tx, now)
+        const competition = options.demoCompetitionId === undefined
+            ? await openCompetitionForEntries(tx, now)
+            : await demoCompetitionForEntries(
+                tx,
+                options.demoCompetitionId,
+                now,
+                options.maxDemoGuests ?? MAX_DEMO_GUESTS,
+            )
         if (competition === null) {
             return { kind: 'closed' } as const
         }
@@ -219,6 +268,18 @@ export async function claimCheckoutSignIn(
     checkoutToken: string,
     now: Date,
 ): Promise<string | null> {
+    // A demo payment is free, so it proves nothing about who owns the email. Anyone could
+    // type a real player's address and be signed in as them. Demo guests use the emailed link.
+    const [demoCheck] = await db
+        .select({ isDemo: competitions.isDemo })
+        .from(payments)
+        .innerJoin(entries, eq(entries.id, payments.entryId))
+        .innerJoin(competitions, eq(competitions.id, entries.competitionId))
+        .where(eq(payments.stripeSessionId, sessionId))
+    if (demoCheck?.isDemo === true) {
+        return null
+    }
+
     const [claimed] = await db
         .update(payments)
         .set({ checkoutTokenUsedAt: now })
@@ -482,7 +543,7 @@ async function sendWelcome(environment: PaymentEnvironment, personId: string, co
     const { db, mailer, now, siteUrl } = environment
     const person = await findPersonById(db, personId)
     const [competition] = await db
-        .select({ name: competitions.name })
+        .select({ name: competitions.name, isDemo: competitions.isDemo })
         .from(competitions)
         .where(eq(competitions.id, competitionId))
     if (person === null || competition === undefined) {
@@ -494,7 +555,7 @@ async function sendWelcome(environment: PaymentEnvironment, personId: string, co
     link.searchParams.set('token', token)
     link.searchParams.set('next', '/pick')
 
-    await mailer.send({ to: person.email, ...welcomeEmail(link.toString(), competition.name) })
+    await mailer.send({ to: person.email, ...welcomeEmail(link.toString(), competition.name, competition.isDemo) })
 }
 
 function paymentAlertMessage(alert: ActivationAlert, originalName: string, finalName: string): string {

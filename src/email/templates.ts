@@ -57,9 +57,11 @@ export function signInEmail(link: string, purpose: LinkPurpose): EmailContent {
 }
 
 /** Sent once the entry fee is through. The link lasts 24 hours, and the sign-in page can always send another. */
-export function welcomeEmail(link: string, competitionName: string): EmailContent {
+export function welcomeEmail(link: string, competitionName: string, isDemo = false): EmailContent {
     const subject = 'You’re in · Last Man Standing'
-    const intro = `Thanks for entering ${competitionName} and for helping Tramore Athletic. Your payment worked.`
+    const intro = isDemo
+        ? `You’re in the demo, ${competitionName}. Your test payment worked. This is a pretend game, so no real money was taken.`
+        : `Thanks for entering ${competitionName} and for helping Tramore Athletic. Your payment worked.`
     const next = 'Use this link to sign in and make your first pick:'
     const footer = 'The link works once, for 24 hours. After that, ask for a new one on the sign-in page.'
 

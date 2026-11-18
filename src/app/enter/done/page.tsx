@@ -11,7 +11,7 @@ import Link from 'next/link'
 import { currentSession } from '@/auth/session'
 import { AuthCard } from '@/components/AuthCard'
 import { getDatabase } from '@/db/client'
-import { entries, payments } from '@/db/schema'
+import { competitions, entries, payments } from '@/db/schema'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,9 +34,11 @@ export default async function EnterDonePage({ searchParams }: DonePageProps) {
     if (row.status === 'paid') {
         const isSignedIn = (await currentSession()) !== null
         return (
-            <AuthCard title={row.kind === 'buyback' ? 'You’re back in!' : 'You’re in!'}>
+            <AuthCard title={row.kind === 'buyback' ? 'You’re back in!' : row.isDemo ? 'You’re in the demo!' : 'You’re in!'}>
                 <p className="text-sm text-muted">
-                    Thanks, <strong className="text-ink">{row.displayName}</strong>. Your payment worked. It helps Tramore Athletic.
+                    {row.isDemo
+                        ? <>Thanks, <strong className="text-ink">{row.displayName}</strong>. Your test payment worked. No real money was taken.</>
+                        : <>Thanks, <strong className="text-ink">{row.displayName}</strong>. Your payment worked. It helps Tramore Athletic.</>}
                 </p>
                 <p className="text-sm text-muted">
                     {isSignedIn
@@ -76,9 +78,15 @@ async function paymentFor(sessionId: string) {
     }
 
     const [row] = await getDatabase()
-        .select({ status: payments.status, kind: payments.kind, displayName: entries.displayName })
+        .select({
+            status: payments.status,
+            kind: payments.kind,
+            displayName: entries.displayName,
+            isDemo: competitions.isDemo,
+        })
         .from(payments)
         .innerJoin(entries, eq(entries.id, payments.entryId))
+        .innerJoin(competitions, eq(competitions.id, entries.competitionId))
         .where(eq(payments.stripeSessionId, sessionId))
 
     return row
