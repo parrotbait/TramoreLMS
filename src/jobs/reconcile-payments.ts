@@ -23,5 +23,6 @@ export async function reconcilePayments(db: Database, now: Date): Promise<Reconc
         mailer: mailerFromEnv(),
         now,
         siteUrl: siteUrl(),
+        adminEmails: process.env['ADMIN_EMAILS'],
     })
 }

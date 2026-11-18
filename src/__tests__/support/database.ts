@@ -25,6 +25,8 @@ export interface TestDatabase {
     readonly db: Database
     /** Empties every table, so each test starts clean. */
     readonly reset: () => Promise<void>
+    /** Runs one SQL statement and returns its rows. For checks that look at the database itself. */
+    readonly rawQuery: (statement: string) => Promise<readonly Record<string, unknown>[]>
     /** Closes the connections and drops the database. */
     readonly close: () => Promise<void>
 }
@@ -62,7 +64,10 @@ export async function createTestDatabase(): Promise<TestDatabase> {
     return {
         db,
         reset: async () => {
-            await client.unsafe('truncate table "competition", "person" restart identity cascade')
+            await client.unsafe('truncate table "competition", "person", "audit_log" restart identity cascade')
+        },
+        rawQuery: async (statement) => {
+            return client.unsafe(statement)
         },
         close: async () => {
             await client.end()

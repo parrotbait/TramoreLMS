@@ -25,6 +25,7 @@ import {
     fakeMailer,
     seedCompetition,
 } from '../../__tests__/support/payments'
+import { notifyAdminsOfSignUp } from '../sign-up-notice'
 import {
     beginCheckout,
     claimCheckoutSignIn,
@@ -554,6 +555,148 @@ describe('buying back in', () => {
         const second = await confirmPayment(environment(), paid(active.entryId, 'cs_test_3', buyback))
 
         expect(second).toEqual({ applied: true, alert: 'duplicateBuyback' })
+    })
+})
+
+describe('telling the admins about a new player', () => {
+    const ADMINS = 'boss@example.ie, helper@example.ie'
+
+    /** The messages that went to the admins. Players’ welcome emails are not among them. */
+    const adminMessages = (mailer: ReturnType<typeof fakeMailer>) => {
+        return mailer.sent.filter((message) => {
+            return message.subject.startsWith('New player')
+        })
+    }
+
+    it('emails every admin once, with who joined, what they paid, and the player count', async () => {
+        const { environment, enter, paid, mailer, competitionId } = await rig()
+        const started = await enter('Aoife', 'aoife@example.ie')
+
+        await confirmPayment({ ...environment(), adminEmails: ADMINS }, paid(started.entryId, started.sessionId))
+
+        const messages = adminMessages(mailer)
+        expect(messages).toHaveLength(1)
+        expect(messages[0]?.to).toBe('boss@example.ie, helper@example.ie')
+        expect(messages[0]?.subject).toBe('New player: Aoife · Last Man Standing')
+        expect(messages[0]?.text).toContain('Paid €10.00 by card.')
+        expect(messages[0]?.text).toContain('1 player is in.')
+        expect(messages[0]?.text).toContain(`https://lms.test/admin/c/${competitionId}/entries`)
+        expect(messages[0]?.text).not.toContain('aoife@example.ie')
+    })
+
+    it('counts the players who are in, and sends one email for each', async () => {
+        const { environment, enter, paid, mailer } = await rig()
+        const first = await enter('Aoife', 'aoife@example.ie')
+        const second = await enter('Seán', 'sean@example.ie')
+        const withAdmins = { ...environment(), adminEmails: ADMINS }
+
+        await confirmPayment(withAdmins, paid(first.entryId, first.sessionId))
+        await confirmPayment(withAdmins, paid(second.entryId, second.sessionId))
+
+        const messages = adminMessages(mailer)
+        expect(messages.map((message) => {
+            return message.subject
+        })).toEqual(['New player: Aoife · Last Man Standing', 'New player: Seán · Last Man Standing'])
+        expect(messages[1]?.text).toContain('2 players are in.')
+    })
+
+    it('sends it once even when Stripe repeats the event or the webhook races the return page', async () => {
+        const { environment, enter, paid, mailer } = await rig()
+        const started = await enter('Aoife', 'aoife@example.ie')
+        const withAdmins = { ...environment(), adminEmails: ADMINS }
+        const command = paid(started.entryId, started.sessionId)
+
+        await Promise.all([
+            confirmPayment(withAdmins, command),
+            confirmPayment(withAdmins, command),
+            confirmPayment(withAdmins, command),
+        ])
+        await confirmPayment(withAdmins, command)
+
+        expect(adminMessages(mailer)).toHaveLength(1)
+    })
+
+    it('does not send one for a payment that did not make a new player', async () => {
+        const { environment, enter, activeEntry, paid, mailer, db } = await rig()
+        const withAdmins = { ...environment(), adminEmails: ADMINS }
+        const active = await activeEntry('Aoife', 'aoife@example.ie')
+        const withdrawn = await enter('Seán', 'sean@example.ie')
+        await db.update(entries).set({ status: 'withdrawn', holdExpiresAt: null }).where(eq(entries.id, withdrawn.entryId))
+        mailer.sent.length = 0
+
+        await beginCheckout(environment(), active.entryId, 'entry')
+        await confirmPayment(withAdmins, paid(active.entryId, 'cs_test_3'))
+        await confirmPayment(withAdmins, paid(withdrawn.entryId, withdrawn.sessionId))
+        await beginCheckout(environment(), active.entryId, 'buyback')
+        await confirmPayment(withAdmins, paid(active.entryId, 'cs_test_4', {
+            paymentKind: 'buyback',
+            amountCents: BUYBACK_FEE_CENTS,
+        }))
+
+        expect(adminMessages(mailer)).toEqual([])
+    })
+
+    it('sends nothing when no admin addresses are set', async () => {
+        const { environment, enter, paid, mailer } = await rig()
+        const started = await enter('Aoife', 'aoife@example.ie')
+
+        await confirmPayment({ ...environment(), adminEmails: '' }, paid(started.entryId, started.sessionId))
+
+        expect(adminMessages(mailer)).toEqual([])
+    })
+
+    it('still signs the player up, and still welcomes them, when the email to the admins fails', async () => {
+        const { db, gateway, enter, paid } = await rig()
+        const sent: string[] = []
+        const brokenMailer = {
+            send: async (message: { readonly subject: string }) => {
+                if (message.subject.startsWith('New player')) {
+                    throw new Error('SMTP is down')
+                }
+
+                sent.push(message.subject)
+            },
+        }
+        const started = await enter('Aoife', 'aoife@example.ie')
+
+        const result = await confirmPayment(
+            { ...environmentOf(db, gateway, brokenMailer), adminEmails: ADMINS },
+            paid(started.entryId, started.sessionId),
+        )
+
+        expect(result.applied).toBe(true)
+        expect((await entryOf(started.entryId)).status).toBe('active')
+        expect((await paymentsOf(started.entryId))[0]?.status).toBe('paid')
+        expect(sent).toEqual(['You’re in · Last Man Standing'])
+    })
+
+    it('says how a player added by hand paid', async () => {
+        const { db, enter, activeEntry, mailer } = await rig()
+        await enter('Unused', 'unused@example.ie')
+        const added = await activeEntry('Seán', 'sean@example.ie')
+
+        const sentOk = await notifyAdminsOfSignUp(
+            { db, mailer, siteUrl: 'https://lms.test', adminEmails: ADMINS },
+            { entryId: added.entryId, method: 'cash', amountCents: 2000 },
+        )
+
+        expect(sentOk).toBe(true)
+        expect(adminMessages(mailer)[0]?.text).toContain('Paid €20.00 by cash.')
+    })
+
+    it('says nothing about a demo', async () => {
+        const { db, competitionId, activeEntry, mailer } = await rig()
+        const added = await activeEntry('Seán', 'sean@example.ie')
+        const { competitions } = await import('@/db/schema')
+        await db.update(competitions).set({ isDemo: true }).where(eq(competitions.id, competitionId))
+
+        const sentOk = await notifyAdminsOfSignUp(
+            { db, mailer, siteUrl: 'https://lms.test', adminEmails: ADMINS },
+            { entryId: added.entryId, method: 'cash', amountCents: 1000 },
+        )
+
+        expect(sentOk).toBe(false)
+        expect(adminMessages(mailer)).toEqual([])
     })
 })
 

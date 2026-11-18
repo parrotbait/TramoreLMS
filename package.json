@@ -24,6 +24,7 @@
         "dev:add-player": "node --import tsx scripts/add-player.ts"
     },
     "dependencies": {
+        "@vercel/blob": "^2.9.0",
         "drizzle-orm": "^0.45.4",
         "next": "^16.4.3",
         "nodemailer": "^10.3.1",

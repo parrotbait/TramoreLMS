@@ -4,12 +4,11 @@
 // Cron calls it once a day as a backup (Decision 13). Both send
 // `Authorization: Bearer <CRON_SECRET>`.
 
-import { timingSafeEqual } from 'node:crypto'
-
 import { siteUrl } from '@/auth/session'
 import { getDatabase } from '@/db/client'
 import { mailerFromEnv } from '@/email/mailer'
 import { sendAlertEmails } from '@/jobs/alert-emails'
+import { isAuthorisedCron } from '@/jobs/cron-auth'
 import { liveFeeds } from '@/jobs/live-feeds'
 import { reconcilePayments } from '@/jobs/reconcile-payments'
 import { removeExpiredEmails } from '@/jobs/retention'
@@ -28,8 +27,7 @@ export async function POST(request: Request): Promise<Response> {
 }
 
 async function handle(request: Request): Promise<Response> {
-    const secret = process.env['CRON_SECRET'] ?? ''
-    if (secret.length < 32 || !hasBearer(request, secret)) {
+    if (!isAuthorisedCron(request)) {
         return new Response('Unauthorised', { status: 401 })
     }
 
@@ -47,12 +45,4 @@ async function handle(request: Request): Promise<Response> {
     const alertsEmailed = await sendAlertEmails(db, mailer, now, siteUrl(), adminEmails)
 
     return Response.json({ ranAt: now.toISOString(), payments, reports, reminders, emailsRemoved, alertsEmailed })
-}
-
-function hasBearer(request: Request, secret: string): boolean {
-    const header = request.headers.get('authorization') ?? ''
-    const expected = Buffer.from(`Bearer ${secret}`)
-    const actual = Buffer.from(header)
-
-    return actual.length === expected.length && timingSafeEqual(actual, expected)
 }

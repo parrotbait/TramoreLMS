@@ -137,5 +137,6 @@ function paymentEnvironment(): PaymentEnvironment {
         mailer: mailerFromEnv(),
         now: new Date(),
         siteUrl: siteUrl(),
+        adminEmails: process.env['ADMIN_EMAILS'],
     }
 }

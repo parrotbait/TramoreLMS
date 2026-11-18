@@ -108,7 +108,8 @@ export function environmentOf(
     mailer: Mailer,
     now: Date = NOW,
 ): PaymentEnvironment {
-    return { db, gateway, mailer, now, siteUrl: 'https://lms.test' }
+    // No admin addresses unless a test sets them, so the real ADMIN_EMAILS is never used.
+    return { db, gateway, mailer, now, siteUrl: 'https://lms.test', adminEmails: undefined }
 }
 
 function match(externalId: number, matchday: number, home: string, away: string, kickoff: string): FeedMatch {

@@ -48,6 +48,7 @@ export async function POST(request: Request): Promise<Response> {
                 mailer: mailerFromEnv(),
                 now: new Date(),
                 siteUrl: siteUrl(),
+                adminEmails: process.env['ADMIN_EMAILS'],
             }, command)
             break
     }

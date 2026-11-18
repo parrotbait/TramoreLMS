@@ -229,6 +229,59 @@ export function alertEmail(alertsPageUrl: string, lines: readonly AlertLine[]): 
     return { subject, text, html }
 }
 
+export interface SignUpDetails {
+    readonly displayName: string
+    readonly competitionName: string
+    /** For example “card”, “cash” or “Revolut”. */
+    readonly paidBy: string
+    /** For example “€10.00”. */
+    readonly amountLabel: string
+    /** Active players in the competition now, this one included. */
+    readonly playerCount: number
+    readonly entriesUrl: string
+}
+
+/** To the admins when a player joins and has paid. One email per player. */
+export function signUpEmail(details: SignUpDetails): EmailContent {
+    const subject = `New player: ${details.displayName} · Last Man Standing`
+    const intro = `${details.displayName} has joined ${details.competitionName}.`
+    const paid = `Paid ${details.amountLabel} by ${details.paidBy}.`
+    const count = details.playerCount === 1 ? '1 player is in.' : `${details.playerCount} players are in.`
+
+    const text = [
+        intro,
+        paid,
+        count,
+        '',
+        'Open the entries page:',
+        details.entriesUrl,
+        '',
+        `Last Man Standing · ${brand.fundraisingLine}`,
+    ].join('\n')
+
+    const html = `<!doctype html>
+<html lang="en-IE">
+<body style="margin:0;padding:24px;background:${colours.subtle};font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:${colours.text}">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:0 auto;background:${colours.surface};border-radius:16px;overflow:hidden">
+    <tr><td style="background:${colours.maroon};color:${colours.onMaroon};padding:20px 24px">
+      <div style="font-size:20px;font-weight:700">New player</div>
+      <div style="font-size:13px;opacity:0.9">${escapeHtml(brand.fundraisingLine)}</div>
+    </td></tr>
+    <tr><td style="padding:24px">
+      <p style="margin:0 0 8px;font-size:16px">${escapeHtml(intro)}</p>
+      <p style="margin:0 0 4px;font-size:14px;color:${colours.muted}">${escapeHtml(paid)}</p>
+      <p style="margin:0 0 20px;font-size:14px;color:${colours.muted}">${escapeHtml(count)}</p>
+      <p style="margin:0">
+        <a href="${escapeHtml(details.entriesUrl)}" style="display:inline-block;background:${colours.maroon};color:${colours.onMaroon};text-decoration:none;font-weight:700;padding:14px 22px;border-radius:12px">Open the entries</a>
+      </p>
+    </td></tr>
+  </table>
+</body>
+</html>`
+
+    return { subject, text, html }
+}
+
 /** To a demo guest (Admin → Demo → Add a guest). The link lasts 24 hours. */
 export function demoInviteEmail(link: string, guestName: string): EmailContent {
     const subject = 'Try the Last Man Standing demo'

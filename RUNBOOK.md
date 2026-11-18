@@ -12,12 +12,13 @@ Last checked: 2026-11-17.
 |---|---|---|
 | Vercel (Hobby) | Hosts the site at `https://tramorelastmanstanding.vercel.app`. Deploys each push to `main`. Runs a daily cron that only calls the tick if cron-job.org has missed it. It does not back up data. | Move to the club (section 9) |
 | Neon Postgres | The database, `last-man-standing-db`, London region. Connected to the Vercel project for Production only. | Move to the club |
-| cron-job.org | Calls `/api/cron/tick` every 10 minutes. This is the main clock. | Move to the club |
+| cron-job.org | Calls `/api/cron/tick` every 10 minutes. This is the main clock. Also calls `/api/cron/backup` every 6 hours. | Move to the club |
+| Vercel Blob | A private store that holds the encrypted database backups for 30 days (section 6, “Backups”). | Moves with the Vercel project |
 | Stripe | Card payments through Stripe Checkout. Sends webhooks to `/api/stripe/webhook`. | Club-owned if possible |
 | football-data.org | Fixtures and results. This is the primary feed. | Move to the club |
 | FPL API | The cross-check for results. It needs no account. | None |
 | Gmail | Sends sign-in, welcome and reminder emails from `tramoreathleticsecretary@gmail.com`, using an app password. | The club |
-| GitHub | The code, in the private repo `parrotbait/TramoreLMS`. Also runs the database backup every 6 hours (section 6, “Backups”). | Move to the club |
+| GitHub | The code, in the private repo `parrotbait/TramoreLMS`. | Move to the club |
 
 ### What the tick does
 
@@ -44,7 +45,7 @@ Set these in Vercel, under Project → Settings → Environment Variables, for P
 |---|---|
 | `POSTGRES_URL` | The Neon connection string. The Neon integration sets it. |
 | `SITE_URL` | `https://tramorelastmanstanding.vercel.app`. Used in emails and WhatsApp text. |
-| `ADMIN_EMAILS` | Admin addresses, separated by commas. Checked on every admin request. A change takes effect at once. |
+| `ADMIN_EMAILS` | Admin addresses, separated by commas. Checked on every admin request. A change takes effect at once. These addresses also get an email for each alert, and a “New player” email each time a player joins and has paid (online, or added by hand). |
 | `CRON_SECRET` | At least 32 characters. cron-job.org and Vercel Cron send it as `Authorization: Bearer …`. Make one with `openssl rand -hex 32`. |
 | `FOOTBALL_DATA_TOKEN` | The football-data.org API token. |
 | `STRIPE_SECRET_KEY` | The Stripe secret key. Use live mode in production. |
@@ -53,6 +54,8 @@ Set these in Vercel, under Project → Settings → Environment Variables, for P
 | `GMAIL_USER` | `tramoreathleticsecretary@gmail.com` |
 | `GMAIL_APP_PASSWORD` | A Google app password. Get it from Google Account → Security → 2-Step Verification → App passwords. |
 | `EMAIL_REPLY_TO` | The address replies go to. Usually the same as `GMAIL_USER`. |
+| `BACKUP_PUBLIC_KEY` | The public key that encrypts the backups. The private key is kept offline and is never put here. |
+| `BLOB_READ_WRITE_TOKEN` | Added by Vercel when you connect the Blob store. It lets the site save backups. |
 | `ENABLE_PREVIEW` | Leave unset in production. `true` turns on `/preview`. |
 
 After you change a variable in Vercel, redeploy. Use Deployments → … → Redeploy.
@@ -160,48 +163,65 @@ A demo never takes money, and it never sends alert emails. The cron and the feed
 
 ### Backups
 
-A GitHub Actions workflow, `.github/workflows/database-backup.yml`, backs up the Neon database **every 6 hours**. Each run:
+The site backs itself up **every 6 hours**. cron-job.org calls `/api/cron/backup`, the same way it calls the tick. Each run:
 
-1. Dumps the database with `pg_dump`. Sign-in tokens are left out.
-2. **Restores the dump into a scratch Postgres and compares the row counts.** If the restore fails or the counts differ, the run fails. A backup that cannot be restored is not kept.
-3. Encrypts the dump with your public key (`age`) and stores it as a workflow artifact for **30 days**.
+1. Reads every table in one go, so the backup is from a single moment. Sign-in tokens are left out.
+2. Encrypts it with your **public key**. The server holds only the public key, so even someone who took over the server could not read the backups. Only the private key opens them.
+3. Saves it in a **private Vercel Blob store**, as `backups/lms-<date>.json`. Vercel deletes each file by itself after **30 days**.
 
-Neon also keeps its own short history, which can undo a mistake from the last few hours. Check how far back your Neon plan goes in the Neon console under Backup & Restore. That history is in the same Neon account as the database. The GitHub backups are the copy that does not depend on Neon.
+The admin home page shows **“✓ Last backup N hours ago”**. If a backup is more than 12 hours old, or the store is not connected, it turns into a red box instead. Look at that page when you sign in.
+
+Neon also keeps its own short history for undoing a mistake. Check how far back your plan goes in the Neon console under Backup & Restore. That history is inside the same Neon account as the database, so the Blob backups are the copy that does not depend on Neon.
 
 **One-time setup**
 
-1. Make a key pair on your own computer. Install `age` (`brew install age`), then run `age-keygen -o lms-backup-key.txt`. It prints a public key that starts with `age1`.
-2. Store `lms-backup-key.txt` somewhere safe and **outside GitHub**: a password manager, and a copy with a second person at the club. Without it a backup cannot be opened. With it, anyone can read the backups.
-3. In GitHub, go to the repo → Settings → Secrets and variables → Actions → New repository secret. Add:
-   - `BACKUP_AGE_PUBLIC_KEY`: the `age1…` public key from step 1.
-   - `BACKUP_DATABASE_URL`: the **direct (unpooled)** Neon connection string. Find it in the Neon console under Connect, with “Pooled connection” switched off. A pooled URL does not work for `pg_dump`.
-4. Go to the repo → Actions → Database backup → Run workflow. Wait for a green tick. This proves the secrets, the restore check and the upload all work.
+1. **Make the key pair** on your own computer:
 
-**Check it is working.** Open the repo → Actions → Database backup. There should be a green run in the last 6 hours. A failed run emails the person who last changed the schedule. Look at this page once a week during the season, and after any change to the secrets.
+   ```
+   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out lms-backup-private.pem
+   openssl pkey -in lms-backup-private.pem -pubout -out lms-backup-public.pem
+   ```
+
+2. **Keep `lms-backup-private.pem` safe, and out of GitHub and Vercel.** Use a password manager, and give a copy to a second person at the club. Without it a backup cannot be opened. With it, anyone who has a backup can read it.
+3. **Make the Blob store.** In Vercel, go to the project → Storage → Create → Blob. Choose **Private**. Connect it to the project for Production. Vercel adds `BLOB_READ_WRITE_TOKEN` for you.
+4. **Add the public key.** In Vercel → Settings → Environment Variables, add `BACKUP_PUBLIC_KEY` for Production. Paste the whole contents of `lms-backup-public.pem`, including the BEGIN and END lines. Then redeploy.
+5. **Add the job on cron-job.org.**
+   - Address: `https://tramorelastmanstanding.vercel.app/api/cron/backup`
+   - Method: GET
+   - Header: `Authorization: Bearer <CRON_SECRET>`, the same as the tick job.
+   - Schedule: every 6 hours.
+   - Turn on failure notifications.
+6. **Run it once by hand.** Use “Test run” on cron-job.org. The response should say `"ok": true`. Then refresh the admin home page. It should say “Last backup less than an hour ago”.
+
+**Check it is working.** The admin home page shows the age of the last backup. cron-job.org emails you if a run fails. A response with `"ok": false` says what is wrong, for example a missing key.
 
 **Restore** (to recover from a disaster, or to move to a new database):
 
-1. Open the repo → Actions → the run you want → download its artifact. Unzip it to get the `.dump.age` file.
-2. Decrypt it:
+1. In Vercel, open Storage → the Blob store. Download the newest file under `backups/`.
+2. Make a new, empty Neon database. Get its **direct (unpooled)** URL.
+3. Make its tables:
 
    ```
-   age --decrypt --identity lms-backup-key.txt --output backup.dump lms-backup-….dump.age
+   POSTGRES_URL='<the new database URL>' pnpm db:migrate
    ```
 
-3. Make an empty database, then restore into it. Use the direct Neon URL of the **new** database:
+4. Restore into it:
 
    ```
-   pg_restore --no-owner --no-privileges --dbname '<new database URL>' backup.dump
+   POSTGRES_URL='<the new database URL>' node --import tsx scripts/restore-backup.ts lms-<date>.json lms-backup-private.pem
    ```
 
-4. Point `POSTGRES_URL` in Vercel at the new database and redeploy. Players sign in again with a link, because sign-in tokens are not in the backup.
-5. Check `/admin`: the competitions, entries and payments are there. Then check Stripe against the payments list.
+   The script refuses a database that already has data. It also refuses a backup made with a different number of migrations, and tells you to run `pnpm db:migrate` first. A restore happens all at once: if it fails, nothing is written.
+5. Point `POSTGRES_URL` in Vercel at the new database and redeploy. Players sign in again with a link, because sign-in tokens are not in the backup.
+6. Check `/admin`: the competitions, entries and payments are there. Then check Stripe against the payments list.
 
 Anything that happened after the last backup is lost, up to 6 hours. Stripe keeps its own record of every payment. After a restore, compare Stripe's payments list (Payments, since the backup time) with the Entries page. Add anyone who paid but is missing with **Add player**, and tell them. The tick's safety net can't find these, because it only checks payments it already has a pending row for.
 
-**Practise a restore once** before the season starts, into a free scratch Neon database. A restore you have never tried is a guess. `scripts/backup-database.sh` does the same check locally: `scripts/backup-database.sh <source-url> backup.dump <scratch-server-admin-url>`.
+**Practise a restore once** before the season starts, into a free scratch Neon database. A restore you have never tried is a guess. Also check that the Vercel dashboard really lets you download a file from the private store.
 
-**Privacy.** Backups hold emails. The privacy page promises that emails are deleted 90 days after a competition ends. Backups are kept for 30 days, so an email can survive up to 30 days longer in an old backup. Keep the 30 days, or shorten it, and say so on the privacy page.
+**A full copy by hand.** `scripts/backup-database.sh <source-url> backup.dump <scratch-server-admin-url>` makes a complete `pg_dump` file and checks that it restores. Use it before a risky change, for example a migration. It needs `pg_dump` installed.
+
+**Privacy.** Backups hold emails. The privacy page promises that emails are deleted 90 days after a competition ends. Backups are deleted after 30 days, so an email can survive up to 30 days longer in an old backup. If you keep this, say so on the privacy page.
 
 ---
 
@@ -213,7 +233,7 @@ Anything that happened after the last backup is lost, up to 6 hours. Stripe keep
 | No emails arrive | Check that `EMAIL_TRANSPORT=gmail` is set. Check the app password, which stops working if the Google password changes. Gmail allows about 500 emails a day. Players should check their spam folder. Vercel → Logs shows “Reminder email failed”. |
 | A player paid but isn't in | Stripe → Developers → Webhooks → the endpoint → failed events. Resend them. The tick also checks pending payments every 10 minutes. |
 | Results don't come in | Check that `FOOTBALL_DATA_TOKEN` is set and valid. The tick JSON shows `feed: { error: … }` when it fails. Use fixture overrides until the feed is back. |
-| The backup workflow is red, or has not run | GitHub → Actions → Database backup → the failed run. A message about secrets means `BACKUP_DATABASE_URL` or `BACKUP_AGE_PUBLIC_KEY` is missing or wrong. A “restore check failed” message means do not trust that run's backup, and tell the developer. A connection error after a Neon password change means updating `BACKUP_DATABASE_URL`. |
+| The admin home page says backups need attention | “Not set up”: connect the Blob store (section 6, “Backups”, step 3). “No backup yet” or “late”: open the backup job on cron-job.org and read its last response. `"ok": false` says why. A 401 means `CRON_SECRET` doesn't match. A message about the key means `BACKUP_PUBLIC_KEY` is missing or isn't a valid public key. |
 | The site shows “Something went wrong” | Vercel → Logs for the error. Check that Neon is up and `POSTGRES_URL` is set. |
 | A player says their sign-in link doesn't work | Links work once, for 30 minutes. Reminder links last until the cut-off. Ask them to get a new link at `/signin`. Some email apps open links early. The sign-in page needs a tap or JavaScript, so that doesn't use the link up. |
 
@@ -243,7 +263,7 @@ Also:
 - Set `ADMIN_EMAILS` to the new organisers' addresses.
 - Make a new `CRON_SECRET`. Update it in Vercel and cron-job.org together.
 - Make a new Gmail app password if the old one was ever shared.
-- Move the backup: add the new owner's secrets (`BACKUP_DATABASE_URL`, `BACKUP_AGE_PUBLIC_KEY`) to the repo they will own, and give them the `age` private key. Run the backup workflow once and check it is green.
+- Hand over the backup: give the new owner the **private key** (`lms-backup-private.pem`) and check they can find it. The Blob store moves with the Vercel project. Run the backup job once and check the admin home page shows a fresh backup.
 - Give the new organiser this runbook and `PLAN.md`.
 
 ---
@@ -257,7 +277,7 @@ Do this once, on the live site, before you share the link. Tick each line.
 - [ ] All variables in section 2 are set in Vercel for Production. `EMAIL_TRANSPORT` is `gmail`. `ENABLE_PREVIEW` is not set.
 - [ ] Stripe is in live mode. The webhook endpoint is `https://tramorelastmanstanding.vercel.app/api/stripe/webhook`, with these events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired` and `checkout.session.async_payment_failed`.
 - [ ] All migrations are applied to Neon (section 6).
-- [ ] The database backup has run green (section 6, “Backups”), and you have restored one into a scratch database at least once.
+- [ ] The admin home page says “✓ Last backup … ago”, the backup job is on cron-job.org every 6 hours, and you have restored one into a scratch database at least once (section 6, “Backups”).
 - [ ] cron-job.org calls `/api/cron/tick` every 10 minutes with the `Authorization: Bearer <CRON_SECRET>` header. The last run returned 200.
 
 ### The competition

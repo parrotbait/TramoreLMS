@@ -34,7 +34,14 @@ export async function GET(request: Request): Promise<never> {
     const db = getDatabase()
     const now = new Date()
     try {
-        const environment = { db, gateway: gatewayFromEnv(), mailer: mailerFromEnv(), now, siteUrl: siteUrl() }
+        const environment = {
+            db,
+            gateway: gatewayFromEnv(),
+            mailer: mailerFromEnv(),
+            now,
+            siteUrl: siteUrl(),
+            adminEmails: process.env['ADMIN_EMAILS'],
+        }
         await reconcileCheckout(environment, sessionId)
     } catch (error) {
         console.warn(`Could not check Checkout session ${sessionId} with Stripe:`, error)

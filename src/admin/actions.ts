@@ -37,6 +37,7 @@ import { fetchFootballData } from '@/feeds/football-data'
 import { displayNameKey } from '@/lib/display-name'
 import { isUuid } from '@/lib/ids'
 import { nameWithSuffix, validateEntryForm } from '@/payments/entry-rules'
+import { notifyAdminsOfSignUp } from '@/payments/sign-up-notice'
 import { openCompetitionForEntries } from '@/payments/service'
 import { gatewayFromEnv } from '@/payments/stripe'
 
@@ -379,6 +380,12 @@ export async function addEntryAction(competitionId: string, formData: FormData) 
     if (added === null) {
         back(page, 'error', `Someone has already entered as “${form.displayName}”.`)
     }
+
+    // The admins hear about every sign-up, including the ones added here. It never throws.
+    await notifyAdminsOfSignUp(
+        { db, mailer: mailerFromEnv(), siteUrl: siteUrl(), adminEmails: process.env['ADMIN_EMAILS'] },
+        { entryId: added.entryId, method, amountCents },
+    )
 
     const isEmailSent = await sendAddedEntryEmail(added.personId, form.email, competition.name, form.displayName)
     if (!isEmailSent) {

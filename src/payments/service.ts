@@ -28,6 +28,7 @@ import type { ActivationAlert, PaymentKind } from './activation'
 import { holdExpiresAt, validateEntryForm } from './entry-rules'
 import type { EntryFieldError } from './entry-rules'
 import type { PaymentGateway } from './stripe'
+import { notifyAdminsOfSignUp } from './sign-up-notice'
 import { commandFromSession } from './webhook-events'
 import type { WebhookCommand } from './webhook-events'
 
@@ -40,6 +41,8 @@ export interface PaymentEnvironment {
     readonly mailer: Mailer
     readonly now: Date
     readonly siteUrl: string
+    /** ADMIN_EMAILS, for the new-player email. Callers pass it, so tests never read the real one. */
+    readonly adminEmails: string | undefined
 }
 
 export interface OpenCompetition {
@@ -330,6 +333,12 @@ export async function confirmPayment(environment: PaymentEnvironment, command: P
 
     await recordFee(environment, command)
     if (outcome.activated) {
+        // The admins first: it never throws, and the welcome email can.
+        await notifyAdminsOfSignUp(environment, {
+            entryId: command.entryId,
+            method: 'stripe',
+            amountCents: command.amountCents,
+        })
         await sendWelcome(environment, outcome.personId, outcome.entry.competitionId)
     }
 

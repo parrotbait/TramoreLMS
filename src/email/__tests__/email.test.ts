@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { mailerFromEnv, withLogging } from '../mailer'
-import { addedEntryEmail, alertEmail, demoInviteEmail, reminderEmail, signInEmail } from '../templates'
+import { addedEntryEmail, alertEmail, demoInviteEmail, reminderEmail, signInEmail, signUpEmail } from '../templates'
 
 const link = 'https://tramorelastmanstanding.vercel.app/auth/verify?token=abc&next=%2Fpick'
 
@@ -116,6 +116,43 @@ describe('addedEntryEmail', () => {
         const email = addedEntryEmail(link, '<i>LMS</i>', '<b>Kev</b>')
         expect(email.html).toContain('&lt;b&gt;Kev&lt;/b&gt;')
         expect(email.html).toContain('&lt;i&gt;LMS&lt;/i&gt;')
+        expect(email.html).not.toContain('<b>Kev</b>')
+    })
+})
+
+describe('signUpEmail', () => {
+    const details = {
+        displayName: 'Aoife',
+        competitionName: 'Last Man Standing 2026/27',
+        paidBy: 'card',
+        amountLabel: '€10.00',
+        playerCount: 12,
+        entriesUrl: 'https://lms.test/admin/c/abc/entries',
+    }
+
+    it('says who joined, what they paid, how many are in, and links to the entries', () => {
+        const email = signUpEmail(details)
+
+        expect(email.subject).toBe('New player: Aoife · Last Man Standing')
+        expect(email.text).toContain('Aoife has joined Last Man Standing 2026/27.')
+        expect(email.text).toContain('Paid €10.00 by card.')
+        expect(email.text).toContain('12 players are in.')
+        expect(email.text).toContain(details.entriesUrl)
+        expect(email.html).toContain(`href="${details.entriesUrl}"`)
+    })
+
+    it('says “1 player is in” for the first', () => {
+        expect(signUpEmail({ ...details, playerCount: 1 }).text).toContain('1 player is in.')
+    })
+
+    it('never puts the player’s email address in it', () => {
+        expect(JSON.stringify(signUpEmail(details))).not.toContain('@')
+    })
+
+    it('escapes the name in the HTML', () => {
+        const email = signUpEmail({ ...details, displayName: '<b>Kev</b>' })
+
+        expect(email.html).toContain('&lt;b&gt;Kev&lt;/b&gt;')
         expect(email.html).not.toContain('<b>Kev</b>')
     })
 })

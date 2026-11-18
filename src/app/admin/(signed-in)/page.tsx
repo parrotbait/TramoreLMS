@@ -4,6 +4,7 @@ import Link from 'next/link'
 
 import { createCompetitionAction } from '@/admin/actions'
 import { listCompetitions } from '@/admin/load'
+import { BackupStatus } from '@/components/admin/BackupStatus'
 import { Card, Field, Submit } from '@/components/admin/ui'
 import { getDatabase } from '@/db/client'
 import { formatEuro } from '@/lib/format'
@@ -15,6 +16,8 @@ export default async function AdminHomePage() {
 
     return (
         <>
+            <BackupStatus />
+
             <Card title="Competitions">
                 {competitions.length === 0
                     ? <p className="text-sm text-muted">No competitions yet. Create the first one below.</p>
