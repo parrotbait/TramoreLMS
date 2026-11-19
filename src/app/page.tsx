@@ -6,8 +6,8 @@
 import Image from 'next/image'
 import Link from 'next/link'
 
-import { loadPublicCompetition } from '@/content/load'
-import type { PublicCompetition } from '@/content/load'
+import { loadPublicCompetition, loadUpcomingCompetition } from '@/content/load'
+import type { PublicCompetition, UpcomingCompetition } from '@/content/load'
 import { getDatabase } from '@/db/client'
 import { formatDublin, formatEuro } from '@/lib/format'
 import { isPreviewEnabled } from '@/preview/enabled'
@@ -19,6 +19,11 @@ export default async function HomePage() {
     const competition = await loadPublicCompetition(getDatabase(), new Date()).catch(() => {
         return null
     })
+    const upcoming = competition === null
+        ? await loadUpcomingCompetition(getDatabase()).catch(() => {
+            return null
+        })
+        : null
 
     return (
         <main>
@@ -34,9 +39,11 @@ export default async function HomePage() {
                     <p>You can use each team once. The last player left wins.</p>
                 </div>
 
+                {upcoming === null ? null : <ComingSoon upcoming={upcoming} />}
+
                 {competition === null ? null : <Facts competition={competition} />}
 
-                <EnterButton competition={competition} />
+                <EnterButton competition={competition} hasUpcoming={upcoming !== null} />
 
                 <p className="text-sm">
                     Already in? <Link href="/signin" className="font-semibold text-maroon underline">Sign in</Link>
@@ -87,9 +94,35 @@ function Facts({ competition }: { readonly competition: PublicCompetition }) {
     )
 }
 
-function EnterButton({ competition }: { readonly competition: PublicCompetition | null }) {
+/** The prize first, then the cost. A player should get both in two seconds. */
+function ComingSoon({ upcoming }: { readonly upcoming: UpcomingCompetition }) {
+    return (
+        <div className="space-y-3 rounded-3xl border-2 border-gold bg-subtle px-4 py-6">
+            <p className="inline-block rounded-full bg-gold px-3 py-1 text-sm font-bold uppercase tracking-wide text-on-gold">
+                Entries open soon
+            </p>
+            <div>
+                <p className="text-sm text-muted">Win</p>
+                <p className="text-6xl font-extrabold leading-none text-maroon">{formatEuro(upcoming.prizeCents)}</p>
+            </div>
+            <p className="text-xl font-bold">
+                It costs just {formatEuro(upcoming.entryFeeCents)} to enter.
+            </p>
+        </div>
+    )
+}
+
+interface EnterButtonProps {
+    readonly competition: PublicCompetition | null
+    readonly hasUpcoming: boolean
+}
+
+function EnterButton({ competition, hasUpcoming }: EnterButtonProps) {
     if (competition === null) {
-        return <p className="inline-block rounded-full bg-gold px-4 py-2 font-semibold text-on-gold">Entries open soon</p>
+        // The card above already says “Entries open soon”.
+        return hasUpcoming
+            ? null
+            : <p className="inline-block rounded-full bg-gold px-4 py-2 font-semibold text-on-gold">Entries open soon</p>
     }
 
     if (!competition.isTakingEntries) {

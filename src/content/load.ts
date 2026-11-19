@@ -81,3 +81,30 @@ async function raisedFor(db: Executor, competitionId: string, prizeCents: number
 
     return raised > 0 ? raised : null
 }
+
+/** The fee and prize of a competition that is set up but not yet open. */
+export interface UpcomingCompetition {
+    readonly name: string
+    readonly entryFeeCents: number
+    readonly prizeCents: number
+}
+
+/**
+ * The newest draft that is not a demo. The home page shows it only when no
+ * competition is public yet, so players can see the prize and the cost
+ * before entries open.
+ */
+export async function loadUpcomingCompetition(db: Executor): Promise<UpcomingCompetition | null> {
+    const [competition] = await db
+        .select({
+            name: competitions.name,
+            entryFeeCents: competitions.entryFeeCents,
+            prizeCents: competitions.prizeCents,
+        })
+        .from(competitions)
+        .where(and(eq(competitions.status, 'draft'), eq(competitions.isDemo, false)))
+        .orderBy(desc(competitions.createdAt))
+        .limit(1)
+
+    return competition ?? null
+}
