@@ -6,9 +6,9 @@
 //   The cut-off is less than 24 hours away, the player can pick for the
 //   week, and they haven't. One email per entry per week.
 //
-// A player whose previous result comes in after the 24-hour point (a Monday
-// night game) can't pick until then. They become due on the next tick, which
-// is the “late” email.
+// Nobody can pick until the previous week has settled. If it settles after
+// the 24-hour point (a Monday night game), everyone who is in becomes due on
+// the next tick, which is the “late” email.
 //
 // A player who entered inside the 24 hours has just had the welcome email,
 // which already asks them to pick, so they are left out.

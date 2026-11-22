@@ -72,5 +72,14 @@ export function tickAlertRow(alert: TickAlert, names: AlertNames): AlertRow {
                 fixtureId: null,
                 message: `Week ${alert.weekNumber} has no fixtures, so it cannot open. Check the fixture list.`,
             }
+        case 'weekBlocked':
+            return {
+                kind: alert.kind,
+                key: `${alert.kind}:${alert.weekNumber}`,
+                fixtureId: null,
+                message: `Week ${alert.weekNumber - 1} is not settled yet, so nobody can pick for Week ${alert.weekNumber}. `
+                    + `The Week ${alert.weekNumber} cut-off is ${formatDublin(alert.cutoffAt)}. `
+                    + `Settle the results still held on the Week ${alert.weekNumber - 1} page, or move the cut-off.`,
+            }
     }
 }

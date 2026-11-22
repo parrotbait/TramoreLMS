@@ -28,8 +28,10 @@ export type PickValidation =
 /**
  * True when the entry is in for this week.
  *
- * A player is also in for next week as soon as their own result for this week
- * is "through", before the rest of the week settles (Decision 20).
+ * A player is in for next week only once the whole of this week has settled
+ * and their own result is "through". Nobody picks ahead, even with a result
+ * that is already in. “Out” is provisional until the whole week settles
+ * (rule 6), and a held result must never let some players pick early.
  */
 export function isEligibleForWeek(
     state: GameState,
@@ -59,6 +61,11 @@ export function isEligibleForWeek(
     })
     if (isAlreadyIn) {
         return true
+    }
+
+    const isPreviousWeekSettled = standings.lastSettledWeek >= weekNumber - 1
+    if (!isPreviousWeekSettled) {
+        return false
     }
 
     const previous = standing.weeks.find((entryWeek) => {

@@ -98,68 +98,16 @@ export interface PickScreenModel {
     readonly buybackAvailable: boolean
 }
 
-export interface WeekTab {
-    readonly weekNumber: number
-    /** For example “Week 1 · pending”. */
-    readonly label: string
-}
-
-export interface PickScreenWeeks {
-    /** The week to show. */
-    readonly weekNumber: number
-    /** Empty when there is nothing to switch to. */
-    readonly tabs: readonly WeekTab[]
-}
-
 /**
- * Week N + 1 opens at the Week N cut-off, so a player can pick ahead as soon
- * as their own result is through (Decision 20). While Week N still has games
- * to play, the screen also offers a tab back to it, to see the locked pick and
- * how it is going. The latest week is shown unless the player asks for the
- * previous one. A player whose pick has lost sees only last week until its
- * games are all played, as next week is for players who are through.
- * A postponed game doesn't count as a game to play, so one called-off match
- * never keeps the tab up for weeks.
+ * The week the pick screen shows: the first one that has not settled.
+ *
+ * Next week can only be picked once this week has settled (every player's
+ * result is final), so until then everyone sees this week. A player sees their locked
+ * pick and how it is going, and nothing of next week. Week N + 1 may already be
+ * open in the database, as it opens at the Week N cut-off, but it is out of sight.
  */
-export function pickScreenWeeks(
-    context: ViewContext,
-    entryId: EntryId,
-    latestWeek: number,
-    requestedWeek: number | null,
-): PickScreenWeeks {
-    const previousWeek = latestWeek - 1
-    const standing = context.standings.entries.get(entryId)
-    const previous = standing?.weeks.find((entryWeek) => {
-        return entryWeek.week === previousWeek
-    })
-    const previousCutoff = context.state.weeks.find((week) => {
-        return week.number === previousWeek
-    })?.cutoffAt
-    const hasLocked = previousCutoff !== null
-        && previousCutoff !== undefined
-        && context.now.getTime() >= previousCutoff.getTime()
-    const hasGamesToPlay = fixturesOf(context, previousWeek).some((fixture) => {
-        return fixture.override === undefined && fixture.state.kind === 'scheduled'
-    })
-    const isOutWhileWeekRuns = previous !== undefined
-        && previous.outcome === 'out'
-        && !previous.reinstated
-        && hasGamesToPlay
-    if (previousWeek >= 1 && hasLocked && isOutWhileWeekRuns) {
-        return { weekNumber: previousWeek, tabs: [] }
-    }
-
-    if (previousWeek < 1 || previous === undefined || !hasLocked || !hasGamesToPlay) {
-        return { weekNumber: latestWeek, tabs: [] }
-    }
-
-    return {
-        weekNumber: requestedWeek === previousWeek ? previousWeek : latestWeek,
-        tabs: [
-            { weekNumber: previousWeek, label: `Week ${previousWeek} · ${previous.outcome}` },
-            { weekNumber: latestWeek, label: `Week ${latestWeek}` },
-        ],
-    }
+export function pickScreenWeek(context: ViewContext, latestWeek: number): number {
+    return Math.min(latestWeek, context.standings.lastSettledWeek + 1)
 }
 
 export function buildPickScreen(context: ViewContext, entryId: EntryId, weekNumber: number): PickScreenModel {
@@ -311,6 +259,12 @@ function statusOf(
     const previous = entryWeeks.find((entryWeek) => {
         return entryWeek.week === weekNumber - 1
     })
+    // Nobody picks until the whole of last week has settled, not even a player who is through.
+    const isPreviousWeekUnsettled = standings.lastSettledWeek < weekNumber - 1
+    if (previous !== undefined && isPreviousWeekUnsettled) {
+        return 'waitingForResult'
+    }
+
     const isProvisional = standings.entries.get(entryId)?.status === 'provisionallyOut'
     if (previous?.outcome === 'pending' || isProvisional) {
         return 'waitingForResult'

@@ -36,9 +36,10 @@ function plan(state: GameState, now: Date, options: {
     })
 }
 
-// Week 1: Arsenal won, Chelsea lost, Everton v Fulham not played yet.
+// Week 1: Arsenal won, Chelsea lost, Everton v Fulham not played yet (or played, if given).
 // ann is through. bob is out. cat waits on Everton. dan has already picked
-// for Week 2. eve withdrew from Week 2.
+// for Week 2. eve withdrew from Week 2. Nobody can pick for Week 2 until the
+// whole of Week 1 has settled, which needs the Everton game played.
 function weekTwo(evertonResult = '-') {
     return buildState({
         weeks: [
@@ -63,17 +64,23 @@ describe('planReminders', () => {
         expect(plan(weekTwo(), hoursBefore(2, 25))).toEqual([])
     })
 
-    it('reminds only players who can pick and haven’t', () => {
-        expect(plan(weekTwo(), hoursBefore(2, 23))).toEqual(['ann:2'])
+    it('reminds nobody while Week 1 is unsettled, as nobody can pick yet', () => {
+        expect(plan(weekTwo(), hoursBefore(2, 23))).toEqual([])
+    })
+
+    it('reminds only players who can pick and haven’t, once Week 1 has settled', () => {
+        expect(plan(weekTwo('1-0'), hoursBefore(2, 23))).toEqual(['ann:2', 'cat:2'])
     })
 
     it('sends each reminder once', () => {
-        expect(plan(weekTwo(), hoursBefore(2, 23), { alreadySent: [reminderKey('ann', 2)] })).toEqual([])
+        const sent = [reminderKey('ann', 2), reminderKey('cat', 2)]
+        expect(plan(weekTwo('1-0'), hoursBefore(2, 23), { alreadySent: sent })).toEqual([])
     })
 
-    it('reminds a player whose result comes in after the 24-hour point', () => {
-        const now = hoursBefore(2, 5)
-        expect(plan(weekTwo('1-0'), now, { alreadySent: [reminderKey('ann', 2)] })).toEqual(['cat:2'])
+    it('reminds everyone who is in as soon as the week settles late, inside the 24 hours', () => {
+        // Everton v Fulham finishes with the cut-off 5 hours away. Both players are due on the next tick.
+        expect(plan(weekTwo('0-1'), hoursBefore(2, 5))).toEqual(['ann:2'])
+        expect(plan(weekTwo('1-0'), hoursBefore(2, 5))).toEqual(['ann:2', 'cat:2'])
     })
 
     it('never reminds a player who went out late', () => {

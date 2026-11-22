@@ -19,6 +19,7 @@ import type {
     ProgressionRow,
     ProgressionWeek,
 } from '@/view-models/progression'
+import { currentProgressionWeek } from '@/view-models/progression-week'
 
 import { TeamCrest } from './TeamCrest'
 
@@ -44,12 +45,21 @@ export function ProgressionGrid({ model, highlightEntryId }: ProgressionGridProp
     const [query, setQuery] = useState('')
     const [selection, setSelection] = useState<Selection | null>(null)
 
+    // Open on the week that is being played, not on the last week of the season.
+    const currentWeek = currentProgressionWeek(model.weeks)
     useEffect(() => {
         const element = scroller.current
-        if (element !== null) {
-            element.scrollLeft = element.scrollWidth
+        const column = element?.querySelector<HTMLElement>(`[data-week="${currentWeek}"]`)
+        const nameColumn = element?.querySelector<HTMLElement>('[data-name-column]')
+        if (element === null || element === undefined || column === null || column === undefined) {
+            return
         }
-    }, [model.weeks.length])
+
+        // Put the live week next to the player names, with the week before it showing for context.
+        const offset = column.getBoundingClientRect().left - element.getBoundingClientRect().left + element.scrollLeft
+        const stickyWidth = nameColumn?.offsetWidth ?? 0
+        element.scrollLeft = Math.max(0, offset - stickyWidth - column.offsetWidth)
+    }, [currentWeek])
 
     const sections = useMemo(() => {
         const needle = normalise(query)
@@ -113,6 +123,7 @@ export function ProgressionGrid({ model, highlightEntryId }: ProgressionGridProp
                         <tr>
                             <th
                                 scope="col"
+                                data-name-column
                                 className="sticky left-0 top-0 z-30 min-w-28 border-b border-line bg-surface px-3 py-2 text-left text-xs font-semibold text-muted"
                             >
                                 Player
@@ -122,6 +133,7 @@ export function ProgressionGrid({ model, highlightEntryId }: ProgressionGridProp
                                     <th
                                         key={week.number}
                                         scope="col"
+                                        data-week={week.number}
                                         title={`Week ${week.number}, PL Matchday ${week.plMatchday}`}
                                         className="sticky top-0 z-20 w-10 border-b border-line bg-surface px-0.5 py-2 text-center"
                                     >

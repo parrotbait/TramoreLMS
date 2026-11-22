@@ -39,6 +39,7 @@ export function rulesContent(settings: RulesSettings): RulesContent {
                     'Each week is one round of Premier League games.',
                     'If your team wins, you are through.',
                     'If your team draws or loses, you are out.',
+                    'You pick for the next week once everyone’s result from this week is in.',
                 ],
             },
             {

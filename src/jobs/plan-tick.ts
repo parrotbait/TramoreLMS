@@ -42,6 +42,8 @@ export interface WeekOpening {
 export type TickAlert =
     | { readonly kind: 'autoPass'; readonly entryId: string; readonly weekNumber: number }
     | { readonly kind: 'weekWithoutFixtures'; readonly weekNumber: number }
+    /** Nobody can pick for `weekNumber` until the week before it settles, and its cut-off is close or past. */
+    | { readonly kind: 'weekBlocked'; readonly weekNumber: number; readonly cutoffAt: Date }
 
 export interface TickPlan {
     readonly openings: readonly WeekOpening[]
@@ -52,6 +54,9 @@ export interface TickPlan {
 }
 
 const ACTIVE: ReadonlySet<CompetitionStatus> = new Set(['open', 'running'])
+
+/** An admin hears about a blocked week this long before its cut-off. */
+const BLOCKED_WARNING_MS = 24 * 60 * 60 * 1000
 
 export function planTick(input: TickInput): TickPlan {
     if (!ACTIVE.has(input.status)) {
@@ -80,6 +85,7 @@ export function planTick(input: TickInput): TickPlan {
     }
 
     const standings = computeStandings(working, input.now)
+    alerts.push(...blockedWeekAlerts(working, standings.lastSettledWeek, input.now))
     const settledWeeks = input.weeks
         .filter((week) => {
             return week.settledAt === null && week.number <= standings.lastSettledWeek
@@ -95,6 +101,24 @@ export function planTick(input: TickInput): TickPlan {
         status: nextStatus(input, working, standings.outcome.kind),
         alerts,
     }
+}
+
+/**
+ * Nobody can pick for a week until the week before it has settled. If a result is
+ * held, every survivor is stuck, and the next cut-off is coming. Tell the admin
+ * early, so they can settle the result by hand or move the cut-off. Only the
+ * first blocked week counts: later ones follow from it.
+ */
+function blockedWeekAlerts(state: GameState, lastSettledWeek: number, now: Date): readonly TickAlert[] {
+    const blocked = state.weeks.find((week) => {
+        return week.number === lastSettledWeek + 2
+    })
+    if (blocked === undefined || blocked.cutoffAt === null) {
+        return []
+    }
+
+    const isNear = blocked.cutoffAt.getTime() - now.getTime() <= BLOCKED_WARNING_MS
+    return isNear ? [{ kind: 'weekBlocked', weekNumber: blocked.number, cutoffAt: blocked.cutoffAt }] : []
 }
 
 function nextOpening(input: TickInput, alerts: TickAlert[]): WeekOpening | null {

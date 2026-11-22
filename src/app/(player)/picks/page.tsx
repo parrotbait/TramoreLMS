@@ -23,11 +23,13 @@ export default async function PicksPage({ searchParams }: PicksPageProps) {
         )
     }
 
+    // Only weeks whose cut-off has passed have picks to show. Next week stays out of sight until then.
+    const revealedWeek = latestRevealedWeek(page.context, page.currentWeek)
     const requested = Number((await searchParams).week)
-    const weekNumber = Number.isInteger(requested) && requested >= 1 && requested <= page.currentWeek
+    const weekNumber = Number.isInteger(requested) && requested >= 1 && requested <= revealedWeek
         ? requested
-        : latestRevealedWeek(page.context, page.currentWeek)
-    const weekLinks = Array.from({ length: page.currentWeek }, (_, index) => {
+        : revealedWeek
+    const weekLinks = Array.from({ length: revealedWeek }, (_, index) => {
         return { weekNumber: index + 1, href: `/picks?week=${index + 1}` }
     })
 

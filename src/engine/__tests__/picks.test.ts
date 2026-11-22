@@ -72,7 +72,7 @@ describe('validatePick: eligibility', () => {
         expect(validatePick(state, afterWeek(1), 'cat', 2, 'Everton')).toEqual({ ok: false, reason: 'notEligible' })
     })
 
-    it('lets a player pick next week once their own result is through (Decision 20)', () => {
+    it('does not let a player pick next week while the week is unsettled, even with their own result in', () => {
         const state = buildState({
             ...twoWeeks,
             weeks: [
@@ -80,7 +80,34 @@ describe('validatePick: eligibility', () => {
                 twoWeeks.weeks[1],
             ],
         })
+        // ann’s Arsenal won, so she is through. Everton v Fulham is not played, so Week 1 is not settled.
+        expect(validatePick(state, afterWeek(1), 'ann', 2, 'Everton')).toEqual({ ok: false, reason: 'notEligible' })
+    })
+
+    it('lets a player pick next week once the whole week has settled', () => {
+        const state = buildState(twoWeeks)
+
         expect(validatePick(state, afterWeek(1), 'ann', 2, 'Everton')).toEqual({ ok: true })
+    })
+
+    it('settles on an admin override of the held game, which frees every survivor at once', () => {
+        const held = buildState({
+            ...twoWeeks,
+            weeks: [
+                { fixtures: [['Arsenal', 'Chelsea', '1-0'], ['Everton', 'Fulham', '-']] },
+                twoWeeks.weeks[1],
+            ],
+        })
+        const settled = buildState({
+            ...twoWeeks,
+            weeks: [
+                { fixtures: [['Arsenal', 'Chelsea', '1-0'], ['Everton', 'Fulham', '-', 'V']] },
+                twoWeeks.weeks[1],
+            ],
+        })
+
+        expect(validatePick(held, afterWeek(1), 'ann', 2, 'Everton')).toEqual({ ok: false, reason: 'notEligible' })
+        expect(validatePick(settled, afterWeek(1), 'ann', 2, 'Everton')).toEqual({ ok: true })
     })
 
     it('does not let a provisionally-out player pick next week', () => {
@@ -263,7 +290,7 @@ describe('autoAssign: rule 4 (Decision 8)', () => {
         expect(entryIds).not.toContain('cat')
     })
 
-    it('assigns late players once the previous week settles', () => {
+    it('assigns nobody while the previous week is unsettled, then everyone who is in once it settles', () => {
         const unsettled = buildState({
             ...twoWeeks,
             weeks: [
@@ -271,13 +298,13 @@ describe('autoAssign: rule 4 (Decision 8)', () => {
                 twoWeeks.weeks[1],
             ],
         })
-        const firstRun = autoAssign(unsettled, cutoffOf(2), 2)
-        expect(firstRun.map((pick) => {
-            return pick.entryId
-        })).toEqual(['ann'])
+        // Week 2 has locked, but Week 1 is still unsettled, so nobody is in for Week 2 yet.
+        expect(autoAssign(unsettled, cutoffOf(2), 2)).toEqual([])
 
-        const settled = withPicks(buildState(twoWeeks), firstRun)
-        const secondRun = autoAssign(settled, afterWeek(2), 2)
-        expect(secondRun).toEqual([{ entryId: 'bob', week: 2, teamId: 'Arsenal', source: 'auto' }])
+        const settled = buildState(twoWeeks)
+        const run = autoAssign(settled, afterWeek(2), 2)
+        expect(run.map((pick) => {
+            return [pick.entryId, pick.source]
+        })).toEqual([['ann', 'auto'], ['bob', 'auto']])
     })
 })

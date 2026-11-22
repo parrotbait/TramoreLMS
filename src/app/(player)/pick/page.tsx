@@ -1,18 +1,12 @@
 // Created by Claude driven by Eddie Long on 2026-11-03.
 
-import { PendingLink } from '@/components/PendingLink'
 import { PickScreen } from '@/components/PickScreen'
 import { formatEuro } from '@/lib/format'
 import { buyBackForEntryAction, pickTeamAction } from '@/player/actions'
 import { loadPlayerPage } from '@/player/load'
-import { buildPickScreen, pickScreenWeeks } from '@/view-models/pick-screen'
-import type { WeekTab } from '@/view-models/pick-screen'
+import { buildPickScreen, pickScreenWeek } from '@/view-models/pick-screen'
 
-interface PickPageProps {
-    readonly searchParams: Promise<{ readonly week?: string }>
-}
-
-export default async function PickPage({ searchParams }: PickPageProps) {
+export default async function PickPage() {
     const page = await loadPlayerPage()
     if (page.kind !== 'ready') {
         return null
@@ -27,19 +21,12 @@ export default async function PickPage({ searchParams }: PickPageProps) {
         )
     }
 
-    const { week } = await searchParams
-    const requested = Number(week)
-    const { weekNumber, tabs } = pickScreenWeeks(
-        page.context,
-        page.entry.entryId,
-        page.currentWeek,
-        Number.isInteger(requested) ? requested : null,
-    )
+    // The first week that has not settled. Next week is out of sight until this one is done.
+    const weekNumber = pickScreenWeek(page.context, page.currentWeek)
     const model = buildPickScreen(page.context, page.entry.entryId, weekNumber)
 
     return (
-        <div className="mx-auto max-w-md space-y-4">
-            <WeekTabs tabs={tabs} selectedWeek={weekNumber} latestWeek={page.currentWeek} />
+        <div className="mx-auto max-w-md">
             <PickScreen
                 model={model}
                 pickAction={pickTeamAction.bind(null, page.entry.entryId, weekNumber)}
@@ -47,38 +34,5 @@ export default async function PickPage({ searchParams }: PickPageProps) {
                 buybackFeeLabel={formatEuro(page.buybackFeeCents)}
             />
         </div>
-    )
-}
-
-/** Back to last week’s locked pick, or on to this week to pick ahead. Plain links, so the address says which week. */
-function WeekTabs({ tabs, selectedWeek, latestWeek }: {
-    readonly tabs: readonly WeekTab[]
-    readonly selectedWeek: number
-    readonly latestWeek: number
-}) {
-    if (tabs.length === 0) {
-        return null
-    }
-
-    return (
-        <nav aria-label="Week" className="flex gap-1 rounded-xl bg-subtle p-1">
-            {tabs.map((tab) => {
-                const isSelected = tab.weekNumber === selectedWeek
-                const href = tab.weekNumber === latestWeek ? '/pick' : `/pick?week=${tab.weekNumber}`
-                return (
-                    <PendingLink
-                        key={tab.weekNumber}
-                        href={href}
-                        replace
-                        aria-current={isSelected ? 'page' : undefined}
-                        className={`min-h-10 flex-1 rounded-lg px-3 py-2 text-center text-sm font-semibold ${
-                            isSelected ? 'bg-surface text-ink shadow-sm' : 'text-muted'
-                        }`}
-                    >
-                        {tab.label}
-                    </PendingLink>
-                )
-            })}
-        </nav>
     )
 }

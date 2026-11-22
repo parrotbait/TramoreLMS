@@ -76,6 +76,67 @@ describe('planTick: opening weeks (Decision 12)', () => {
     })
 })
 
+describe('planTick: a week that is blocked by the week before it', () => {
+    // Week 1 has a game with no result, so Week 1 is not settled and nobody can pick for Week 2.
+    const held = buildState({
+        weeks: [
+            { fixtures: [['Arsenal', 'Chelsea', '1-0'], ['Everton', 'Fulham', '-']] },
+            { fixtures: [['Arsenal', 'Everton'], ['Chelsea', 'Fulham']] },
+        ],
+        entries: ['ann', 'bob'],
+        picks: { ann: ['Arsenal'], bob: ['Everton'] },
+    })
+    const hours = (count: number) => {
+        return new Date(cutoffOf(2).getTime() - count * 60 * 60 * 1000)
+    }
+
+    it('warns the admin once the blocked week’s cut-off is within 24 hours', () => {
+        expect(tick(held, hours(23)).alerts).toEqual([
+            { kind: 'weekBlocked', weekNumber: 2, cutoffAt: cutoffOf(2) },
+        ])
+    })
+
+    it('keeps warning after the cut-off has passed, as players are then picked for', () => {
+        expect(tick(held, new Date(cutoffOf(2).getTime() + 60_000)).alerts).toContainEqual(
+            { kind: 'weekBlocked', weekNumber: 2, cutoffAt: cutoffOf(2) },
+        )
+    })
+
+    it('does not warn early, while there is plenty of time', () => {
+        expect(tick(held, hours(30)).alerts).toEqual([])
+    })
+
+    it('stops warning once the week before has settled', () => {
+        const settled = buildState({
+            weeks: [
+                { fixtures: [['Arsenal', 'Chelsea', '1-0'], ['Everton', 'Fulham', '2-0']] },
+                { fixtures: [['Arsenal', 'Everton'], ['Chelsea', 'Fulham']] },
+            ],
+            entries: ['ann', 'bob'],
+            picks: { ann: ['Arsenal'], bob: ['Everton'] },
+        })
+
+        expect(tick(settled, hours(5)).alerts).toEqual([])
+    })
+
+    it('warns about the first blocked week only, not the ones after it', () => {
+        const three = buildState({
+            weeks: [
+                { fixtures: [['Arsenal', 'Chelsea', '1-0'], ['Everton', 'Fulham', '-']] },
+                { fixtures: [['Arsenal', 'Everton'], ['Chelsea', 'Fulham']] },
+                { fixtures: [['Arsenal', 'Fulham'], ['Chelsea', 'Everton']] },
+            ],
+            entries: ['ann', 'bob'],
+            picks: { ann: ['Arsenal'], bob: ['Everton'] },
+        })
+        const weekThreeAlmostDue = new Date(cutoffOf(3).getTime() - 60 * 60 * 1000)
+
+        expect(tick(three, weekThreeAlmostDue).alerts.filter((alert) => {
+            return alert.kind === 'weekBlocked'
+        })).toEqual([{ kind: 'weekBlocked', weekNumber: 2, cutoffAt: cutoffOf(2) }])
+    })
+})
+
 describe('planTick: locking (rule 4)', () => {
     const open = buildState({
         weeks: [{ fixtures: [['Chelsea', 'Arsenal'], ['Everton', 'Fulham']] }],

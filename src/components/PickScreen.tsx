@@ -154,8 +154,8 @@ function StatusPanel({ model }: { readonly model: PickScreenModel }) {
             )
         case 'waitingForResult':
             return (
-                <Panel title="Waiting for last week’s result">
-                    You can pick once your result is in.
+                <Panel title="Waiting for last week to finish">
+                    You can pick once everyone’s result from last week is in.
                 </Panel>
             )
         case 'out':
