@@ -257,18 +257,20 @@ function FixtureRow({ fixture, selectedTeamId, isLocked, onChoose }: {
     )
 }
 
-/** Whether the player’s own pick is through, on the game that holds it. */
+/** How the player’s own pick fared, on the game that holds it. The words come from the model. */
 function PickResultBadge({ result }: { readonly result: PickResult | null }) {
-    switch (result) {
-        case null:
-            return null
-        case 'through':
-            return <span className="rounded-full bg-gold px-2 py-0.5 text-xs font-bold text-on-gold">You’re through ✓</span>
-        case 'out':
-            return <span className="rounded-full bg-maroon px-2 py-0.5 text-xs font-bold text-on-maroon">You’re out ✗</span>
-        case 'waiting':
-            return <span className="rounded-full bg-subtle px-2 py-0.5 text-xs font-semibold text-muted">Waiting for result</span>
+    if (result === null) {
+        return null
     }
+
+    const style = {
+        through: 'bg-gold font-bold text-on-gold',
+        out: 'bg-maroon font-bold text-on-maroon',
+        staysIn: 'border border-gold bg-subtle font-bold text-ink',
+        waiting: 'bg-subtle font-semibold text-muted',
+    }[result.kind]
+
+    return <span className={`rounded-full px-2 py-0.5 text-right text-xs ${style}`}>{result.text}</span>
 }
 
 function TeamButton({ team, isSelected, isLocked, onChoose }: {

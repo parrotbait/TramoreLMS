@@ -9,7 +9,7 @@ import {
     pickNeedsReplacing,
     usedTeamIds,
 } from '@/engine'
-import type { EntryId, Fixture, TeamId, Verdict } from '@/engine'
+import type { EntryId, EntryWeek, Fixture, TeamId, Verdict } from '@/engine'
 import { dublinDayKey, formatDublin, formatDublinDay, formatDublinTime } from '@/lib/format'
 
 import { fixtureLabelOf, fixtureScoreLabel, fixturesOf, teamNameOf } from './context'
@@ -40,11 +40,23 @@ export interface TeamOption {
 /**
  * How the player’s own pick fared in this game. `null` on every other game,
  * and on every game while picks are still open.
+ *
+ * `through` is only for a win, a game called off, or a decision by the
+ * organiser. A draw or a loss is `out`, or `staysIn` when everyone still in
+ * went out together, so everyone stays in (rule 6). The words are made in
+ * `describePickResult` and nowhere else, so a draw can never read “through”.
  */
-export type PickResult =
+export type PickResultKind =
     | 'through'
     | 'out'
+    | 'staysIn'
     | 'waiting'
+
+export interface PickResult {
+    readonly kind: PickResultKind
+    /** What the player reads, in very simple English. */
+    readonly text: string
+}
 
 export interface FixtureOption {
     readonly id: string
@@ -110,6 +122,49 @@ export function pickScreenWeek(context: ViewContext, latestWeek: number): number
     return Math.min(latestWeek, context.standings.lastSettledWeek + 1)
 }
 
+/**
+ * The words for how a pick fared. The only place that says “through”.
+ *
+ * “Through” needs a win, a game called off, a pass, or the organiser’s say.
+ * Anything else that reaches here as through is shown as still being
+ * checked, never as a pass. A draw is out, and a loss is out. If everyone
+ * went out together they all stay in, and the text says why.
+ */
+export function describePickResult(week: Pick<EntryWeek, 'outcome' | 'reason' | 'reinstated'>): PickResult {
+    if (week.outcome === 'pending') {
+        return { kind: 'waiting', text: 'Waiting for result' }
+    }
+
+    if (week.outcome === 'through') {
+        switch (week.reason) {
+            case 'win':
+            case 'pass':
+                return { kind: 'through', text: 'You’re through ✓' }
+            case 'void':
+                return { kind: 'through', text: 'Game called off. You’re through ✓' }
+            case 'pickOverride':
+                return { kind: 'through', text: 'The organiser put you through ✓' }
+            default:
+                return { kind: 'waiting', text: 'Checking your result' }
+        }
+    }
+
+    if (week.reinstated) {
+        return { kind: 'staysIn', text: 'You’re out, but everyone went out, so everyone stays in ↺' }
+    }
+
+    switch (week.reason) {
+        case 'draw':
+            return { kind: 'out', text: 'A draw is out. You’re out ✗' }
+        case 'loss':
+            return { kind: 'out', text: 'You lost. You’re out ✗' }
+        case 'pickOverride':
+            return { kind: 'out', text: 'The organiser put you out ✗' }
+        default:
+            return { kind: 'out', text: 'You’re out ✗' }
+    }
+}
+
 export function buildPickScreen(context: ViewContext, entryId: EntryId, weekNumber: number): PickScreenModel {
     const { state, standings, now } = context
     const week = state.weeks.find((candidate) => {
@@ -167,11 +222,7 @@ export function buildPickScreen(context: ViewContext, entryId: EntryId, weekNumb
             return null
         }
 
-        if (thisWeek.outcome === 'pending') {
-            return 'waiting'
-        }
-
-        return thisWeek.outcome === 'out' && !thisWeek.reinstated ? 'out' : 'through'
+        return describePickResult(thisWeek)
     }
     const optionOf = (fixture: Fixture): FixtureOption => {
         return {

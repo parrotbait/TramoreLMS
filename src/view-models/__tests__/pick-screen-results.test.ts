@@ -53,26 +53,26 @@ describe('results on the pick screen', () => {
         const { arsenal } = resultsOf(stateWith(['Arsenal', 'Chelsea', '2-0']), afterCutoff)
 
         expect(arsenal?.scoreLabel).toBe('2–0')
-        expect(arsenal?.pickResult).toBe('through')
+        expect(arsenal?.pickResult).toEqual({ kind: 'through', text: 'You’re through ✓' })
     })
 
     it('says “out” on the game where the player’s team lost', () => {
         const { arsenal } = resultsOf(stateWith(['Arsenal', 'Chelsea', '0-1']), afterCutoff)
 
-        expect(arsenal?.pickResult).toBe('out')
+        expect(arsenal?.pickResult).toEqual({ kind: 'out', text: 'You lost. You’re out ✗' })
     })
 
     it('says “out” on a draw', () => {
         const { arsenal } = resultsOf(stateWith(['Arsenal', 'Chelsea', '1-1']), afterCutoff)
 
-        expect(arsenal?.pickResult).toBe('out')
+        expect(arsenal?.pickResult).toEqual({ kind: 'out', text: 'A draw is out. You’re out ✗' })
     })
 
     it('says “waiting” while the player’s game is not played', () => {
         const { arsenal } = resultsOf(stateWith(['Arsenal', 'Chelsea']), afterCutoff)
 
         expect(arsenal?.scoreLabel).toBeNull()
-        expect(arsenal?.pickResult).toBe('waiting')
+        expect(arsenal?.pickResult).toEqual({ kind: 'waiting', text: 'Waiting for result' })
     })
 
     it('says nothing on a game that is not the player’s', () => {
@@ -89,13 +89,16 @@ describe('results on the pick screen', () => {
         expect(arsenal?.pickResult).toBeNull()
     })
 
-    it('says “through” when everyone went out together, as they all stay in', () => {
+    it('never says “through” for a loss, even when everyone went out together and all stay in', () => {
         const everyoneOut = buildState({
             weeks: [{ fixtures: [['Arsenal', 'Chelsea', '0-1']] }],
             entries: ['ann'],
             picks: { ann: ['Arsenal'] },
         })
 
-        expect(resultsOf(everyoneOut, afterCutoff).arsenal?.pickResult).toBe('through')
+        const result = resultsOf(everyoneOut, afterCutoff).arsenal?.pickResult
+        expect(result?.kind).toBe('staysIn')
+        expect(result?.text).toContain('everyone went out')
+        expect(result?.text).not.toContain('through')
     })
 })
