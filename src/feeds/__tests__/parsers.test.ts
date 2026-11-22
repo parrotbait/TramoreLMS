@@ -165,6 +165,30 @@ describe('parseFpl', () => {
             finished: false,
         },
         {
+            id: 104,
+            event: 11,
+            kickoff_time: '2026-11-21T17:30:00Z',
+            team_h: 3,
+            team_a: 5,
+            team_h_score: 2,
+            team_a_score: 2,
+            started: true,
+            finished: false,
+            finished_provisional: true,
+        },
+        {
+            id: 105,
+            event: 11,
+            kickoff_time: '2026-11-21T17:30:00Z',
+            team_h: 16,
+            team_a: 1,
+            team_h_score: 0,
+            team_a_score: 1,
+            started: true,
+            finished: false,
+            finished_provisional: false,
+        },
+        {
             id: 103,
             event: null,
             kickoff_time: null,
@@ -183,12 +207,21 @@ describe('parseFpl', () => {
     })
 
     it('skips fixtures with no kick-off time (postponed in FPL)', () => {
-        expect(result.matches).toHaveLength(2)
+        expect(result.matches).toHaveLength(4)
     })
 
     it('only gives a score once FPL marks the match finished', () => {
         expect(result.matches[0]).toMatchObject({ status: 'finished', score: { home: 2, away: 1 } })
         expect(result.matches[1]).toMatchObject({ status: 'inPlay', score: null })
+    })
+
+    it('counts a match as finished from the final whistle, before FPL confirms its bonus points', () => {
+        // finished is still false, but finished_provisional is true, and the score is final.
+        expect(result.matches[2]).toMatchObject({ status: 'finished', score: { home: 2, away: 2 } })
+    })
+
+    it('does not count a match as finished when neither flag is set', () => {
+        expect(result.matches[3]).toMatchObject({ status: 'inPlay', score: null })
     })
 
     it('uses our names for both teams', () => {

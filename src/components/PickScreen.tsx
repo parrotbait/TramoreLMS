@@ -9,7 +9,7 @@ import { useEffect, useOptimistic, useState, useTransition } from 'react'
 import type { ReactNode } from 'react'
 
 import { SubmitButton } from '@/components/SubmitButton'
-import type { FixtureDay, FixtureOption, HistoryItem, PickScreenModel, TeamOption } from '@/view-models/pick-screen'
+import type { FixtureDay, FixtureOption, HistoryItem, PickResult, PickScreenModel, TeamOption } from '@/view-models/pick-screen'
 
 import { TeamCrest } from './TeamCrest'
 import { WeekBanner } from './WeekBanner'
@@ -233,7 +233,10 @@ function FixtureRow({ fixture, selectedTeamId, isLocked, onChoose }: {
         <li className="p-2">
             <div className="flex items-center justify-between px-1 pb-1.5">
                 <span className="text-sm font-bold tabular-nums">{fixture.timeLabel}</span>
-                {fixture.scoreLabel !== null ? <span className="text-sm font-semibold text-ink">{fixture.scoreLabel}</span> : null}
+                <span className="flex items-center gap-2">
+                    {fixture.scoreLabel !== null ? <span className="text-sm font-semibold text-ink">{fixture.scoreLabel}</span> : null}
+                    <PickResultBadge result={fixture.pickResult} />
+                </span>
             </div>
             <div className="flex items-stretch gap-2">
                 <TeamButton
@@ -252,6 +255,20 @@ function FixtureRow({ fixture, selectedTeamId, isLocked, onChoose }: {
             </div>
         </li>
     )
+}
+
+/** Whether the player’s own pick is through, on the game that holds it. */
+function PickResultBadge({ result }: { readonly result: PickResult | null }) {
+    switch (result) {
+        case null:
+            return null
+        case 'through':
+            return <span className="rounded-full bg-gold px-2 py-0.5 text-xs font-bold text-on-gold">You’re through ✓</span>
+        case 'out':
+            return <span className="rounded-full bg-maroon px-2 py-0.5 text-xs font-bold text-on-maroon">You’re out ✗</span>
+        case 'waiting':
+            return <span className="rounded-full bg-subtle px-2 py-0.5 text-xs font-semibold text-muted">Waiting for result</span>
+    }
 }
 
 function TeamButton({ team, isSelected, isLocked, onChoose }: {

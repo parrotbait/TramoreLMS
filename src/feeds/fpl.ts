@@ -45,6 +45,12 @@ const fixturesSchema = z.array(z.object({
     team_a_score: z.number().int().nullable(),
     started: z.boolean().nullable().optional(),
     finished: z.boolean(),
+    /**
+     * True from the final whistle. `finished` only turns true later, once FPL has
+     * confirmed its bonus points, which can take many hours. The score is final at
+     * the whistle, so we use this too. A later change still raises a “result changed” alert.
+     */
+    finished_provisional: z.boolean().nullable().optional(),
 }))
 
 export type FplBootstrap = z.input<typeof bootstrapSchema>
@@ -105,7 +111,8 @@ export function parseFpl(bootstrap: unknown, fixtures: unknown, ourNames: readon
 
         const homeScore = fixture.team_h_score
         const awayScore = fixture.team_a_score
-        const status: FeedStatus = fixture.finished ? 'finished' : fixture.started === true ? 'inPlay' : 'scheduled'
+        const isFinished = fixture.finished || fixture.finished_provisional === true
+        const status: FeedStatus = isFinished ? 'finished' : fixture.started === true ? 'inPlay' : 'scheduled'
 
         return [{
             externalId: fixture.id,
@@ -114,7 +121,7 @@ export function parseFpl(bootstrap: unknown, fixtures: unknown, ourNames: readon
             status,
             home: { name: home, crestUrl: null },
             away: { name: away, crestUrl: null },
-            score: fixture.finished && homeScore !== null && awayScore !== null
+            score: isFinished && homeScore !== null && awayScore !== null
                 ? { home: homeScore, away: awayScore }
                 : null,
         }]

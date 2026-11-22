@@ -68,7 +68,14 @@ export default async function AdminHomePage() {
                 </p>
                 <form action={createCompetitionAction} className="grid gap-3 sm:grid-cols-2">
                     <Field label="Name" name="name" defaultValue="Last Man Standing 2026/27" />
-                    <Field label="Start at PL Matchday" name="startMatchday" type="number" defaultValue="12" required hint="Week 1 is this matchday." />
+                    <Field
+                        label="Start at PL Matchday"
+                        name="startMatchday"
+                        type="number"
+                        placeholder="For example 11"
+                        required
+                        hint="Week 1 is this matchday. Check the fixtures, then type it in."
+                    />
                     <Field label="Entry fee (€)" name="entryFee" defaultValue="10" required />
                     <Field label="Buy-back fee (€)" name="buybackFee" defaultValue="5" required />
                     <Field label="Prize (€)" name="prize" defaultValue="300" required />

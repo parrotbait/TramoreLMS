@@ -37,11 +37,21 @@ export interface TeamOption {
     readonly usedInWeek: number | null
 }
 
+/**
+ * How the player’s own pick fared in this game. `null` on every other game,
+ * and on every game while picks are still open.
+ */
+export type PickResult =
+    | 'through'
+    | 'out'
+    | 'waiting'
+
 export interface FixtureOption {
     readonly id: string
     /** For example “15:00”. The day is on the group it sits in. */
     readonly timeLabel: string
     readonly scoreLabel: string | null
+    readonly pickResult: PickResult | null
     readonly home: TeamOption
     readonly away: TeamOption
 }
@@ -106,8 +116,10 @@ export interface PickScreenWeeks {
  * as their own result is through (Decision 20). While Week N still has games
  * to play, the screen also offers a tab back to it, to see the locked pick and
  * how it is going. The latest week is shown unless the player asks for the
- * previous one. A postponed game doesn't count as a game to play, so one
- * called-off match never keeps the tab up for weeks.
+ * previous one. A player whose pick has lost sees only last week until its
+ * games are all played, as next week is for players who are through.
+ * A postponed game doesn't count as a game to play, so one called-off match
+ * never keeps the tab up for weeks.
  */
 export function pickScreenWeeks(
     context: ViewContext,
@@ -129,6 +141,14 @@ export function pickScreenWeeks(
     const hasGamesToPlay = fixturesOf(context, previousWeek).some((fixture) => {
         return fixture.override === undefined && fixture.state.kind === 'scheduled'
     })
+    const isOutWhileWeekRuns = previous !== undefined
+        && previous.outcome === 'out'
+        && !previous.reinstated
+        && hasGamesToPlay
+    if (previousWeek >= 1 && hasLocked && isOutWhileWeekRuns) {
+        return { weekNumber: previousWeek, tabs: [] }
+    }
+
     if (previousWeek < 1 || previous === undefined || !hasLocked || !hasGamesToPlay) {
         return { weekNumber: latestWeek, tabs: [] }
     }
@@ -187,11 +207,30 @@ export function buildPickScreen(context: ViewContext, entryId: EntryId, weekNumb
     const shownFixtures = weekFixtures.filter((fixture) => {
         return status !== 'open' || !isPostponedNow(fixture)
     })
+    const thisWeek = entryWeeks.find((entryWeek) => {
+        return entryWeek.week === weekNumber
+    })
+    const pickResultOf = (fixture: Fixture): PickResult | null => {
+        const teamId = thisWeek?.pick?.teamId
+        const isPicked = teamId !== undefined
+            && teamId !== null
+            && (fixture.homeTeamId === teamId || fixture.awayTeamId === teamId)
+        if (thisWeek === undefined || !isPicked || status === 'open' || status === 'weekNotOpen') {
+            return null
+        }
+
+        if (thisWeek.outcome === 'pending') {
+            return 'waiting'
+        }
+
+        return thisWeek.outcome === 'out' && !thisWeek.reinstated ? 'out' : 'through'
+    }
     const optionOf = (fixture: Fixture): FixtureOption => {
         return {
             id: fixture.id,
             timeLabel: formatDublinTime(fixture.kickoffAt),
             scoreLabel: fixtureScoreLabel(fixture),
+            pickResult: pickResultOf(fixture),
             home: optionFor(fixture.homeTeamId),
             away: optionFor(fixture.awayTeamId),
         }

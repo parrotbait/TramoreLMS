@@ -99,4 +99,47 @@ describe('pickScreenWeeks', () => {
 
         expect(result).toEqual({ weekNumber: 2, tabs: [] })
     })
+
+    describe('a player whose pick has lost while the week is still running', () => {
+        const lostWhileRunning = buildState({
+            weeks: [
+                { fixtures: [['Arsenal', 'Chelsea', '0-1'], ['Everton', 'Fulham']] },
+                { fixtures: [['Arsenal', 'Everton'], ['Chelsea', 'Fulham']] },
+            ],
+            entries: ['ann', 'bob'],
+            picks: { ann: ['Arsenal'], bob: ['Chelsea'] },
+        })
+
+        it('shows only last week, with no Week 2 tab', () => {
+            const result = pickScreenWeeks(contextOf(lostWhileRunning, justLocked), 'ann', 2, null)
+
+            expect(result).toEqual({ weekNumber: 1, tabs: [] })
+        })
+
+        it('ignores a request for Week 2 in the address', () => {
+            const result = pickScreenWeeks(contextOf(lostWhileRunning, justLocked), 'ann', 2, 2)
+
+            expect(result).toEqual({ weekNumber: 1, tabs: [] })
+        })
+
+        it('still lets a player whose pick won go on to Week 2', () => {
+            const result = pickScreenWeeks(contextOf(lostWhileRunning, justLocked), 'bob', 2, null)
+
+            expect(result.weekNumber).toBe(2)
+            expect(result.tabs.length).toBe(2)
+        })
+
+        it('shows Week 2 once every game in Week 1 is played', () => {
+            const settled = buildState({
+                weeks: [
+                    { fixtures: [['Arsenal', 'Chelsea', '0-1'], ['Everton', 'Fulham', '1-0']] },
+                    { fixtures: [['Arsenal', 'Everton'], ['Chelsea', 'Fulham']] },
+                ],
+                entries: ['ann', 'bob'],
+                picks: { ann: ['Arsenal'], bob: ['Chelsea'] },
+            })
+
+            expect(pickScreenWeeks(contextOf(settled, afterWeek(1)), 'ann', 2, null).weekNumber).toBe(2)
+        })
+    })
 })

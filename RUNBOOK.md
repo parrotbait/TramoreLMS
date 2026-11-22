@@ -184,12 +184,15 @@ Neon also keeps its own short history for undoing a mistake. Check how far back 
 
 **One-time setup**
 
-1. **Make the key pair** on your own computer:
+1. **Make the key pair** on your own computer, in a folder **outside the project** (never inside this repo, or `git add` will pick it up):
 
    ```
+   mkdir -p ~/lms-backup-keys && cd ~/lms-backup-keys
    openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out lms-backup-private.pem
    openssl pkey -in lms-backup-private.pem -pubout -out lms-backup-public.pem
    ```
+
+   `.gitignore` also blocks `*.pem` as a second guard.
 
 2. **Keep `lms-backup-private.pem` safe, and out of GitHub and Vercel.** Use a password manager, and give a copy to a second person at the club. Without it a backup cannot be opened. With it, anyone who has a backup can read it.
 3. **Make the Blob store.** In Vercel, go to the project → Storage → Create → Blob. Choose **Private**. Connect it to the project for Production. Vercel adds `BLOB_READ_WRITE_TOKEN` for you.

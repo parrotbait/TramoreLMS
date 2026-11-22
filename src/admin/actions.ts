@@ -63,7 +63,7 @@ export async function createCompetitionAction(formData: FormData) {
     const buybackFeeCents = parseEuro(text(formData, 'buybackFee'))
     const prizeCents = parseEuro(text(formData, 'prize'))
     if (!Number.isInteger(startMatchday) || startMatchday < 1 || startMatchday > 38) {
-        back('/admin', 'error', 'The start matchday must be from 1 to 38.')
+        back('/admin', 'error', 'Enter the start matchday, a number from 1 to 38.')
     }
 
     if (entryFeeCents === null || buybackFeeCents === null || prizeCents === null) {

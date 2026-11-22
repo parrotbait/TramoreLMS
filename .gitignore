@@ -32,3 +32,7 @@ pnpm-debug.log*
 *.dump
 *.sql.gz
 backups/
+
+# Keys must never be committed (the backup private key lives offline, outside the project)
+*.pem
+*.key
