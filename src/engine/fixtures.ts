@@ -33,6 +33,15 @@ export function isPostponedBy(fixture: Fixture, instant: Date): boolean {
     return fixture.state.at.getTime() <= instant.getTime()
 }
 
+/**
+ * True once the game has kicked off at `instant`. A team whose game has started
+ * can no longer be picked, and a game that started before a week opened is
+ * ignored when the cut-off is fixed.
+ */
+export function hasKickedOffBy(fixture: Fixture, instant: Date): boolean {
+    return fixture.kickoffAt.getTime() <= instant.getTime()
+}
+
 export function fixtureForTeam(
     weekFixtures: readonly Fixture[],
     teamId: TeamId,

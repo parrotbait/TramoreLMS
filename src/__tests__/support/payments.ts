@@ -27,6 +27,8 @@ export interface FakeStripeSession {
 
 export interface FakeGateway extends PaymentGateway {
     readonly requests: CheckoutRequest[]
+    /** Every session id Stripe was asked about. */
+    readonly retrievals: string[]
     readonly refunds: string[]
     readonly sessions: Map<string, FakeStripeSession & { request: CheckoutRequest }>
     /** What Stripe reports for a session. Sessions not set here are open and unpaid. */
@@ -37,12 +39,14 @@ export interface FakeGateway extends PaymentGateway {
 
 export function fakeGateway(): FakeGateway {
     const requests: CheckoutRequest[] = []
+    const retrievals: string[] = []
     const refunds: string[] = []
     const sessions = new Map<string, FakeStripeSession & { request: CheckoutRequest }>()
     const failing = new Set<string>()
 
     return {
         requests,
+        retrievals,
         refunds,
         sessions,
         setSession: (sessionId, state) => {
@@ -63,6 +67,7 @@ export function fakeGateway(): FakeGateway {
             return { sessionId, url: `https://checkout.stripe.test/${sessionId}` }
         },
         retrieveCheckout: async (sessionId) => {
+            retrievals.push(sessionId)
             const session = sessions.get(sessionId)
             if (failing.has(sessionId) || session === undefined) {
                 throw new Error(`Stripe could not find ${sessionId}`)
@@ -125,6 +130,7 @@ function match(externalId: number, matchday: number, home: string, away: string,
 }
 
 export interface SeedOptions {
+    readonly season?: number
     readonly weekOneCutoff?: Date | null
     readonly weekTwoCutoff?: Date | null
     readonly entriesOpen?: boolean
@@ -141,7 +147,7 @@ export async function seedCompetition(db: Database, options: SeedOptions = {}): 
     ], 11, 12)
     const competitionId = await createCompetition(db, {
         name: 'Last Man Standing Test',
-        season: 2026,
+        season: options.season ?? 2026,
         startMatchday: 11,
         finalMatchday: 12,
         entryFeeCents: ENTRY_FEE_CENTS,

@@ -98,7 +98,9 @@ function ProblemNotice({ problem, override }: { readonly problem: Problem; reado
         ? 'Someone already has that name. Try adding a letter or a nickname.'
         : problem === 'closed'
             ? 'Entries have closed.'
-            : 'We couldn’t open the payment page. Please try again in a minute.')
+            : problem === 'busy'
+                ? 'Lots of people are entering right now. Please try again in a few minutes.'
+                : 'We couldn’t open the payment page. Please try again in a minute.')
 
     return <p role="alert" className="rounded-xl border-2 border-maroon bg-subtle px-3 py-2 text-sm font-semibold">{message}</p>
 }

@@ -87,6 +87,9 @@ export function parseFootballData(body: unknown): readonly FeedMatch[] {
     })
 }
 
+/** How long to wait for the feed. A hung call must not use up the whole 60 seconds the tick has. */
+export const FEED_TIMEOUT_MS = 15_000
+
 export async function fetchFootballData(
     token: string,
     season: number,
@@ -95,6 +98,7 @@ export async function fetchFootballData(
     const response = await fetchImpl(`${API_BASE}/competitions/PL/matches?season=${season}`, {
         headers: { 'X-Auth-Token': token },
         cache: 'no-store',
+        signal: AbortSignal.timeout(FEED_TIMEOUT_MS),
     })
     if (!response.ok) {
         throw new Error(`football-data.org returned ${response.status} ${response.statusText}`)

@@ -2,7 +2,7 @@
 //
 // Pick validation and auto-assign (rules 2 and 4, Decision 8).
 
-import { isPostponedBy } from './fixtures'
+import { fixtureForTeam, hasKickedOffBy, isPostponedBy } from './fixtures'
 import { computeStandings, usedTeamIds } from './standings'
 import type { Standings } from './standings'
 import type {
@@ -20,6 +20,8 @@ export type PickRejection =
     | 'notEligible'
     | 'teamUsed'
     | 'teamNotAvailable'
+    /** The team’s game has already kicked off, so it cannot be picked. */
+    | 'gameStarted'
 
 export type PickValidation =
     | { readonly ok: true }
@@ -75,11 +77,34 @@ export function isEligibleForWeek(
     return previous?.outcome === 'through'
 }
 
+/** The teams with a fixture this week that was not postponed, and has not kicked off, by `asOf`. */
+export function teamsPlayingIn(state: GameState, weekNumber: number, asOf: Date): ReadonlySet<TeamId> {
+    const playing = new Set<TeamId>()
+
+    for (const fixture of state.fixtures) {
+        if (fixture.week !== weekNumber || isPostponedBy(fixture, asOf) || hasKickedOffBy(fixture, asOf)) {
+            continue
+        }
+
+        playing.add(fixture.homeTeamId)
+        playing.add(fixture.awayTeamId)
+    }
+
+    return playing
+}
+
 /**
  * Teams the entry could pick this week, in auto-assign order.
  *
  * A team is available when the entry has not used it and it has a fixture this
- * week that was not postponed before `asOf`.
+ * week that was not postponed before `asOf` and has not kicked off by `asOf`. If
+ * every team that plays is already used, the used list starts again for this
+ * week and any team that plays is available (see `usedTeamWeeks`). So a player
+ * is never left with nothing to pick while a game is being played.
+ *
+ * Whether the list starts again is decided at the cut-off, never at `asOf`. The
+ * result must not depend on when someone looks, or a pick could be valid when it
+ * is made and judged invalid later (see `playWeek` in standings.ts).
  */
 export function availableTeams(
     state: GameState,
@@ -89,17 +114,11 @@ export function availableTeams(
     asOf: Date,
 ): readonly Team[] {
     const weeks = standings.entries.get(entryId)?.weeks ?? []
-    const used = usedTeamIds(weeks, weekNumber)
-    const playing = new Set<TeamId>()
-
-    for (const fixture of state.fixtures) {
-        if (fixture.week !== weekNumber || isPostponedBy(fixture, asOf)) {
-            continue
-        }
-
-        playing.add(fixture.homeTeamId)
-        playing.add(fixture.awayTeamId)
-    }
+    const cutoffAt = state.weeks.find((week) => {
+        return week.number === weekNumber
+    })?.cutoffAt
+    const playing = teamsPlayingIn(state, weekNumber, asOf)
+    const used = usedTeamIds(weeks, weekNumber, teamsPlayingIn(state, weekNumber, cutoffAt ?? asOf))
 
     return state.teams
         .filter((team) => {
@@ -135,8 +154,17 @@ export function validatePick(
         return { ok: false, reason: 'notEligible' }
     }
 
+    // A team whose game has started cannot be picked, even if the cut-off has not passed.
+    const fixture = fixtureForTeam(state.fixtures.filter((candidate) => {
+        return candidate.week === weekNumber
+    }), teamId)
+    if (fixture !== undefined && hasKickedOffBy(fixture, now) && !isPostponedBy(fixture, now)) {
+        return { ok: false, reason: 'gameStarted' }
+    }
+
     const weeks = standings.entries.get(entryId)?.weeks ?? []
-    if (usedTeamIds(weeks, weekNumber).has(teamId)) {
+    const restartPlaying = teamsPlayingIn(state, weekNumber, week.cutoffAt)
+    if (usedTeamIds(weeks, weekNumber, restartPlaying).has(teamId)) {
         return { ok: false, reason: 'teamUsed' }
     }
 

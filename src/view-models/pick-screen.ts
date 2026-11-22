@@ -7,13 +7,16 @@ import {
     isBuybackAvailable,
     isEligibleForWeek,
     pickNeedsReplacing,
-    usedTeamIds,
+    teamsPlayingIn,
+    usedTeamWeeks,
 } from '@/engine'
 import type { EntryId, EntryWeek, Fixture, TeamId, Verdict } from '@/engine'
 import { dublinDayKey, formatDublin, formatDublinDay, formatDublinTime } from '@/lib/format'
 
 import { fixtureLabelOf, fixtureScoreLabel, fixturesOf, teamNameOf } from './context'
 import type { ViewContext } from './context'
+import { crowdLines, crowdOf, fallbackTeamName, outCauseOf } from './pick-screen-extras'
+import type { Crowd } from './pick-screen-extras'
 
 export type PickScreenStatus =
     | 'open'
@@ -108,6 +111,14 @@ export interface PickScreenModel {
     readonly postponedLabels: readonly string[]
     readonly history: readonly HistoryItem[]
     readonly buybackAvailable: boolean
+    /** What everyone picked, once picks have closed. `null` before then. */
+    readonly crowd: Crowd | null
+    /** The crowd in words, for under “Picks are closed”. Empty before the cut-off. */
+    readonly crowdLines: readonly string[]
+    /** The team we pick for you if you do nothing, while picks are open and you have none. */
+    readonly fallbackTeamName: string | null
+    /** Why you are out, for a player who is out. */
+    readonly outCause: string | null
 }
 
 /**
@@ -178,14 +189,9 @@ export function buildPickScreen(context: ViewContext, entryId: EntryId, weekNumb
     })
 
     const status = statusOf(context, entryId, weekNumber, cutoffAt)
-    const used = usedTeamIds(entryWeeks, weekNumber)
-    const usedIn = new Map<TeamId, number>()
-    for (const entryWeek of entryWeeks) {
-        const teamId = entryWeek.pick?.teamId
-        if (entryWeek.week < weekNumber && teamId !== undefined && teamId !== null) {
-            usedIn.set(teamId, entryWeek.week)
-        }
-    }
+    // The same list the engine uses. If every team that plays this week is used, it has started again.
+    const usedIn = usedTeamWeeks(entryWeeks, weekNumber, teamsPlayingIn(state, weekNumber, cutoffAt ?? now))
+    const used = new Set(usedIn.keys())
 
     const available = new Set(availableTeams(state, standings, entryId, weekNumber, now).map((team) => {
         return team.id
@@ -224,6 +230,10 @@ export function buildPickScreen(context: ViewContext, entryId: EntryId, weekNumb
 
         return describePickResult(thisWeek)
     }
+    const needsRepick = status === 'open' && pickNeedsReplacing(state, now, entryId, weekNumber)
+    const hasClosed = cutoffAt !== null && now.getTime() >= cutoffAt.getTime()
+    const crowd = hasClosed ? crowdOf(context, entryId, weekNumber) : null
+    const yourTeamName = pick === undefined || pick.teamId === null ? null : teamNameOf(context, pick.teamId)
     const optionOf = (fixture: Fixture): FixtureOption => {
         return {
             id: fixture.id,
@@ -250,7 +260,13 @@ export function buildPickScreen(context: ViewContext, entryId: EntryId, weekNumb
                 crestUrl: pick.teamId === null ? null : context.crestOf(pick.teamId),
                 auto: pick.source !== 'player',
             },
-        needsRepick: status === 'open' && pickNeedsReplacing(state, now, entryId, weekNumber),
+        needsRepick,
+        crowd,
+        crowdLines: crowd === null ? [] : crowdLines(crowd, yourTeamName),
+        fallbackTeamName: status === 'open' && (pick === undefined || pick.teamId === null || needsRepick)
+            ? fallbackTeamName(context, entryId, weekNumber, cutoffAt ?? now)
+            : null,
+        outCause: status === 'out' ? outCauseOf(context, entryId) : null,
         fixtures: shownFixtures.map(optionOf),
         days: groupByDay(shownFixtures, optionOf),
         postponedLabels: status === 'open'

@@ -8,6 +8,7 @@
 import { z } from 'zod'
 
 import type { FeedMatch, FeedStatus } from './types'
+import { FEED_TIMEOUT_MS } from './football-data'
 
 const API_BASE = 'https://fantasy.premierleague.com/api'
 
@@ -140,7 +141,12 @@ export async function fetchFpl(ourNames: readonly string[], fetchImpl: typeof fe
 }
 
 async function getJson(url: string, fetchImpl: typeof fetch): Promise<unknown> {
-    const response = await fetchImpl(url, { cache: 'no-store' })
+    // FPL's API is unofficial and sometimes refuses a request with no name on it.
+    const response = await fetchImpl(url, {
+        cache: 'no-store',
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TramoreLastManStanding/1.0)' },
+        signal: AbortSignal.timeout(FEED_TIMEOUT_MS),
+    })
     if (!response.ok) {
         throw new Error(`FPL returned ${response.status} ${response.statusText} for ${url}`)
     }

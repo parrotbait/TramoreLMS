@@ -5,7 +5,8 @@
 
 'use client'
 
-import { useEffect, useOptimistic, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { useCallback, useEffect, useOptimistic, useState, useTransition } from 'react'
 import type { ReactNode } from 'react'
 
 import { SubmitButton } from '@/components/SubmitButton'
@@ -35,15 +36,38 @@ export function PickScreen({ model, pickAction, buybackAction, buybackFeeLabel }
     const [optimisticTeamId, setOptimisticTeamId] = useOptimistic(model.currentPick?.teamId ?? null)
     const [, startTransition] = useTransition()
     const [toast, setToast] = useState<Toast | null>(null)
+    const router = useRouter()
+
+    // A page left open must not keep offering picks that closed while it sat there. At the
+    // cut-off, and whenever the tab comes back into view, ask the server for the real state.
+    const refresh = useCallback(() => {
+        router.refresh()
+    }, [router])
+    useEffect(() => {
+        if (model.status !== 'open') {
+            return
+        }
+
+        const onVisible = () => {
+            if (document.visibilityState === 'visible') {
+                refresh()
+            }
+        }
+        document.addEventListener('visibilitychange', onVisible)
+        return () => {
+            document.removeEventListener('visibilitychange', onVisible)
+        }
+    }, [model.status, refresh])
 
     useEffect(() => {
         if (toast === null) {
             return
         }
 
+        // A message that says a pick did not save stays a little longer.
         const timer = setTimeout(() => {
             setToast(null)
-        }, 2200)
+        }, toast.kind === 'error' ? 4500 : 2200)
         return () => {
             clearTimeout(timer)
         }
@@ -56,10 +80,16 @@ export function PickScreen({ model, pickAction, buybackAction, buybackFeeLabel }
 
         startTransition(async () => {
             setOptimisticTeamId(team.id)
-            const result = await pickAction(team.id)
-            setToast(result.ok
-                ? { id: Date.now(), kind: 'saved', text: `Saved ✓ ${result.teamName}` }
-                : { id: Date.now(), kind: 'error', text: result.message })
+            try {
+                const result = await pickAction(team.id)
+                setToast(result.ok
+                    ? { id: Date.now(), kind: 'saved', text: `Saved ✓ ${result.teamName}` }
+                    : { id: Date.now(), kind: 'error', text: result.message })
+            } catch (error) {
+                // No signal, or the server did not answer. The tap is undone, so say so.
+                console.error('The pick did not save:', error)
+                setToast({ id: Date.now(), kind: 'error', text: 'No signal. Your pick did not save. Try again.' })
+            }
         })
     }
 
@@ -71,6 +101,8 @@ export function PickScreen({ model, pickAction, buybackAction, buybackFeeLabel }
                 cutoffLabel={model.cutoffLabel}
                 cutoffIso={model.cutoffIso}
                 nowIso={model.nowIso}
+                onCutoff={refresh}
+                belowWeek={<PickRow model={model} />}
             />
 
             {model.buybackAvailable && buybackAction !== undefined
@@ -124,34 +156,58 @@ export function PickScreen({ model, pickAction, buybackAction, buybackFeeLabel }
     )
 }
 
-function StatusPanel({ model }: { readonly model: PickScreenModel }) {
+/**
+ * The player's pick, directly under the week heading, in one or two short lines. This
+ * replaces the separate “Your pick” panel and keeps the screen short. A player who is out,
+ * waiting, or past the end has no pick to show, so a panel explains instead (StatusPanel).
+ */
+function PickRow({ model }: { readonly model: PickScreenModel }) {
     const pick = model.currentPick
-    const pickLine = pick === null ? null : `${pick.teamName}${pick.auto ? ' (Auto)' : ''}`
-    const crest = pick === null ? undefined : { name: pick.teamName, src: pick.crestUrl }
+    const hasTeam = pick !== null && pick.teamId !== null
 
     switch (model.status) {
         case 'open':
             if (model.needsRepick) {
-                return (
-                    <Panel tone="warning" title="Your game was moved">
-                        Pick again before the cut-off. If you don’t, we pick for you.
-                    </Panel>
-                )
+                const orWePick = model.fallbackTeamName === null ? '' : `, or we pick ${model.fallbackTeamName}`
+                return <span className="block font-semibold">Your game was moved. Pick again{orWePick}.</span>
             }
 
-            return pick === null
-                ? <Panel title={`Pick a team for Week ${model.weekNumber}`}>Tap a team below. You can change it until the cut-off.</Panel>
+            return hasTeam
+                ? <YourPick pick={pick} />
                 : (
-                    <Panel title={`Your pick: ${pickLine ?? ''}`} crest={crest}>
-                        Tap another team to change it. You can change it until the cut-off.
-                    </Panel>
+                    <span className="block">
+                        No pick yet. Tap a team below.
+                        {model.fallbackTeamName === null ? '' : ` If you do nothing, we pick ${model.fallbackTeamName}.`}
+                    </span>
                 )
         case 'locked':
             return (
-                <Panel title="Picks are closed" crest={crest}>
-                    {pickLine === null ? 'We are picking a team for you.' : `Your pick: ${pickLine}.`} You can now see everyone’s picks.
-                </Panel>
+                <span className="flex flex-wrap items-center gap-x-2">
+                    <span className="mr-1 font-semibold">Picks closed ·</span>
+                    {hasTeam ? <YourPick pick={pick} /> : <span>We are picking a team for you.</span>}
+                </span>
             )
+        default:
+            return null
+    }
+}
+
+function YourPick({ pick }: { readonly pick: NonNullable<PickScreenModel['currentPick']> }) {
+    return (
+        <span className="inline-flex items-center gap-1.5">
+            <span>Your pick:</span>
+            <TeamCrest name={pick.teamName} src={pick.crestUrl} size={20} />
+            <span className="font-bold">{pick.teamName}{pick.auto ? ' (Auto)' : ''}</span>
+        </span>
+    )
+}
+
+/** Explains the situations where there is no pick to show. For an open or closed week the pick is in the banner. */
+function StatusPanel({ model }: { readonly model: PickScreenModel }) {
+    switch (model.status) {
+        case 'open':
+        case 'locked':
+            return null
         case 'waitingForResult':
             return (
                 <Panel title="Waiting for last week to finish">
@@ -161,7 +217,10 @@ function StatusPanel({ model }: { readonly model: PickScreenModel }) {
         case 'out':
             return (
                 <Panel title="You’re out">
-                    Thanks for playing and for helping Tramore Athletic. You can still see the standings.
+                    {model.outCause === null ? null : <span className="block">{model.outCause}</span>}
+                    <span className="block">
+                        Thanks for playing and for helping Tramore Athletic. You can still see the standings.
+                    </span>
                 </Panel>
             )
         case 'won':

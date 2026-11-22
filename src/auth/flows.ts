@@ -12,6 +12,7 @@ import {
     normaliseEmail,
     parseAdminEmails,
     safeNextPath,
+    sessionCookieExpiresAt,
     sessionExpiresAt,
 } from './rules'
 import type { LinkPurpose } from './rules'
@@ -69,8 +70,8 @@ export async function requestSignInLink(
     }
 
     const since = new Date(environment.now.getTime() - HOUR_MS)
-    const recent = await countLinksSince(environment.db, person.id, since)
-    if (!canSendAnotherLink(recent)) {
+    const recent = await countLinksSince(environment.db, person.id, since, purpose)
+    if (!canSendAnotherLink(recent, purpose)) {
         return { kind: 'accepted' }
     }
 
@@ -81,7 +82,14 @@ export async function requestSignInLink(
     link.searchParams.set('token', token)
     link.searchParams.set('next', safeNextPath(next, fallback))
 
-    await environment.mailer.send({ to: email, ...signInEmail(link.toString(), purpose) })
+    // If the mail server fails, the answer must still be the same as for an address we do not know.
+    // Otherwise a failing server shows who has entered, and the page shows an error for them only.
+    try {
+        await environment.mailer.send({ to: email, ...signInEmail(link.toString(), purpose) })
+    } catch (error) {
+        console.error('Sign-in email failed:', error)
+    }
+
     return { kind: 'accepted' }
 }
 
@@ -90,7 +98,10 @@ export type VerifyResult =
     | {
         readonly kind: 'signedIn'
         readonly cookieValue: string
+        /** When the server forgets the session. */
         readonly expiresAt: Date
+        /** When the browser forgets the cookie. */
+        readonly cookieExpiresAt: Date
         readonly isAdmin: boolean
         readonly next: string
     }
@@ -120,6 +131,7 @@ export async function verifySignInLink(
         kind: 'signedIn',
         cookieValue,
         expiresAt,
+        cookieExpiresAt: sessionCookieExpiresAt(isAdmin, environment.now),
         isAdmin,
         next: safeNextPath(next, isAdmin ? '/admin' : '/pick'),
     }

@@ -67,7 +67,9 @@ async function main(): Promise<number> {
     }
 
     for (const report of reports) {
-        const feed = typeof report.feed === 'string' ? report.feed : `failed: ${report.feed.error}`
+        const feed = typeof report.feed === 'string'
+            ? report.feed
+            : 'error' in report.feed ? `failed: ${report.feed.error}` : `partial: ${report.feed.partial}`
         console.log(`  Competition ${report.competitionId}`)
         console.log(`    Feed: ${feed}, ${report.fixtureChanges} fixture changes`)
         console.log(`    Opened weeks: ${report.openedWeeks.join(', ') || 'none'}`)

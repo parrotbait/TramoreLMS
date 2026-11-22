@@ -22,6 +22,9 @@ import type { FeedMatch } from './types'
 const MINUTE_MS = 60 * 1000
 const RESCHEDULED_AFTER_MS = 7 * 24 * 60 * MINUTE_MS
 
+/** A game called off that shows again this close to its first time is probably not called off. */
+const BACK_ON_AT_MS = 36 * 60 * MINUTE_MS
+
 export interface StoredFixture extends Fixture {
     /** The football-data.org match id. */
     readonly externalId: number
@@ -36,6 +39,10 @@ export type SyncAlert =
     | { readonly kind: 'resultHeld'; readonly fixtureId: string; readonly reason: HoldReason }
     | { readonly kind: 'resultChanged'; readonly fixtureId: string; readonly from: FeedScore; readonly to: FeedScore }
     | { readonly kind: 'missingFromFeed'; readonly fixtureId: string }
+    /** A game was called off and we first saw it after the cut-off. Everyone who picked it is through. */
+    | { readonly kind: 'postponedAfterCutoff'; readonly fixtureId: string; readonly seenAt: Date; readonly cutoffAt: Date }
+    /** A game we marked as called off is back in the feed at about its original time. The call-off may be wrong. */
+    | { readonly kind: 'postponementLooksWrong'; readonly fixtureId: string }
 
 export interface SyncInput {
     readonly fixtures: readonly StoredFixture[]
@@ -74,6 +81,10 @@ export function syncFixtures(input: SyncInput): SyncResult {
 
         const isSettledByAdmin = fixture.override !== undefined
         const isPostponed = fixture.state.kind === 'postponed'
+        if (isPostponed && !isSettledByAdmin && looksBackOn(fixture, feed)) {
+            alerts.push({ kind: 'postponementLooksWrong', fixtureId: fixture.id })
+        }
+
         if (isSettledByAdmin || isPostponed) {
             continue
         }
@@ -101,16 +112,20 @@ function syncOne(
 ): SyncResult {
     const postponed: FixtureChange = { kind: 'state', fixtureId: fixture.id, state: { kind: 'postponed', at: now } }
     const canBePostponed = fixture.state.kind !== 'finished'
+    // We can only record when we saw it. If that is after the cut-off, pickers go through, so the admin should know.
+    const lateAlerts: SyncAlert[] = cutoffAt !== null && now.getTime() > cutoffAt.getTime()
+        ? [{ kind: 'postponedAfterCutoff', fixtureId: fixture.id, seenAt: now, cutoffAt }]
+        : []
 
     if (canBePostponed && (feed.status === 'postponed' || feed.status === 'cancelled')) {
-        return { changes: [postponed], alerts: [] }
+        return { changes: [postponed], alerts: lateAlerts }
     }
 
     const isRescheduledOutOfWeek = canBePostponed
         && cutoffAt !== null
         && feed.kickoffAt.getTime() - cutoffAt.getTime() > RESCHEDULED_AFTER_MS
     if (isRescheduledOutOfWeek) {
-        return { changes: [postponed], alerts: [] }
+        return { changes: [postponed], alerts: lateAlerts }
     }
 
     const changes: FixtureChange[] = []
@@ -163,6 +178,11 @@ function syncOne(
 
     changes.push({ kind: 'state', fixtureId: fixture.id, state: { kind: 'finished', home: score.home, away: score.away } })
     return { changes, alerts }
+}
+
+function looksBackOn(fixture: StoredFixture, feed: FeedMatch): boolean {
+    const isPlayable = feed.status === 'scheduled' || feed.status === 'inPlay' || feed.status === 'finished'
+    return isPlayable && Math.abs(feed.kickoffAt.getTime() - fixture.kickoffAt.getTime()) <= BACK_ON_AT_MS
 }
 
 function teamsKey(home: string, away: string): string {

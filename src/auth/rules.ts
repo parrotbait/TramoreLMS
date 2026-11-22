@@ -11,10 +11,19 @@ export type LinkPurpose =
 
 export const PLAYER_LINK_TTL_MS = 30 * MINUTE_MS
 export const ADMIN_LINK_TTL_MS = 15 * MINUTE_MS
-/** “Lasts until the season ends.” A season runs from August to May. */
-export const PLAYER_SESSION_TTL_MS = 300 * DAY_MS
+/**
+ * A player stays signed in while they use the site. The server forgets a session that has
+ * not been used for this long. Each visit past the half-way point starts it again, so a
+ * lost or shared phone is not signed in for most of a year.
+ */
+export const PLAYER_SESSION_TTL_MS = 30 * DAY_MS
+export const PLAYER_SESSION_RENEW_BELOW_MS = 15 * DAY_MS
+/** The browser keeps the cookie for the season. The server decides whether it still works. */
+export const PLAYER_COOKIE_TTL_MS = 300 * DAY_MS
 export const ADMIN_SESSION_TTL_MS = 7 * DAY_MS
-export const MAX_LINKS_PER_HOUR = 3
+/** Links a person can ask for in an hour, for each kind. An admin link is stricter. */
+export const MAX_PLAYER_LINKS_PER_HOUR = 5
+export const MAX_ADMIN_LINKS_PER_HOUR = 3
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const DEFAULT_NEXT = '/pick'
@@ -53,8 +62,16 @@ export function sessionExpiresAt(isAdmin: boolean, now: Date): Date {
     return new Date(now.getTime() + ttl)
 }
 
-export function canSendAnotherLink(linksInLastHour: number): boolean {
-    return linksInLastHour < MAX_LINKS_PER_HOUR
+/** How long the browser keeps the session cookie. Admin cookies end with the admin session. */
+export function sessionCookieExpiresAt(isAdmin: boolean, now: Date): Date {
+    const ttl = isAdmin ? ADMIN_SESSION_TTL_MS : PLAYER_COOKIE_TTL_MS
+    return new Date(now.getTime() + ttl)
+}
+
+/** `linksInLastHour` counts only links of this kind, so asking for player links never blocks an admin link. */
+export function canSendAnotherLink(linksInLastHour: number, purpose: LinkPurpose): boolean {
+    const limit = purpose === 'admin' ? MAX_ADMIN_LINKS_PER_HOUR : MAX_PLAYER_LINKS_PER_HOUR
+    return linksInLastHour < limit
 }
 
 /**

@@ -89,15 +89,26 @@ const consoleMailer: Mailer = {
     },
 }
 
+/**
+ * Nodemailer waits minutes by default. Gmail answers in about a second, so a
+ * connection that is silent for 10 seconds is stuck, and the tick should move on.
+ */
+export function gmailTransportOptions(user: string, appPassword: string) {
+    return {
+        service: 'gmail',
+        auth: { user, pass: appPassword },
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 20_000,
+    } as const
+}
+
 function gmailMailer(user: string, appPassword: string, replyTo: string | undefined): Mailer {
     if (user === '' || appPassword === '') {
         throw new Error('EMAIL_TRANSPORT=gmail needs GMAIL_USER and GMAIL_APP_PASSWORD.')
     }
 
-    const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: { user, pass: appPassword },
-    })
+    const transporter = nodemailer.createTransport(gmailTransportOptions(user, appPassword))
 
     return {
         send: async (message) => {

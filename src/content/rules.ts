@@ -47,6 +47,7 @@ export function rulesContent(settings: RulesSettings): RulesContent {
                 lines: [
                     'You can pick a team only once.',
                     'This counts teams picked for you, and games that were called off.',
+                    'If every team that plays this week is one you have used, your used teams start again.',
                 ],
             },
             {

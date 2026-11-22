@@ -44,6 +44,10 @@ export type TickAlert =
     | { readonly kind: 'weekWithoutFixtures'; readonly weekNumber: number }
     /** Nobody can pick for `weekNumber` until the week before it settles, and its cut-off is close or past. */
     | { readonly kind: 'weekBlocked'; readonly weekNumber: number; readonly cutoffAt: Date }
+    /** The week was not opened: its cut-off would already be past, so it would lock the moment it opened. */
+    | { readonly kind: 'cutoffInThePast'; readonly weekNumber: number; readonly cutoffAt: Date }
+    /** Games with no result long after kick-off, whatever the reason: a feed problem, a mismatch, or a mapping. */
+    | { readonly kind: 'resultsOverdue'; readonly weekNumber: number; readonly count: number }
 
 export interface TickPlan {
     readonly openings: readonly WeekOpening[]
@@ -57,6 +61,9 @@ const ACTIVE: ReadonlySet<CompetitionStatus> = new Set(['open', 'running'])
 
 /** An admin hears about a blocked week this long before its cut-off. */
 const BLOCKED_WARNING_MS = 24 * 60 * 60 * 1000
+
+/** A game is normally over in under 2 hours. After this long with no result, tell the admin. */
+const RESULT_OVERDUE_MS = 4 * 60 * 60 * 1000
 
 export function planTick(input: TickInput): TickPlan {
     if (!ACTIVE.has(input.status)) {
@@ -86,6 +93,7 @@ export function planTick(input: TickInput): TickPlan {
 
     const standings = computeStandings(working, input.now)
     alerts.push(...blockedWeekAlerts(working, standings.lastSettledWeek, input.now))
+    alerts.push(...overdueResultAlerts(working, input.now))
     const settledWeeks = input.weeks
         .filter((week) => {
             return week.settledAt === null && week.number <= standings.lastSettledWeek
@@ -121,6 +129,31 @@ function blockedWeekAlerts(state: GameState, lastSettledWeek: number, now: Date)
     return isNear ? [{ kind: 'weekBlocked', weekNumber: blocked.number, cutoffAt: blocked.cutoffAt }] : []
 }
 
+/**
+ * Games with no result well after kick-off. This is the alert that would have
+ * caught a feed that was working but never saving results: it does not depend
+ * on why the result is missing. One alert per week.
+ */
+function overdueResultAlerts(state: GameState, now: Date): readonly TickAlert[] {
+    const counts = new Map<number, number>()
+    for (const fixture of state.fixtures) {
+        const week = state.weeks.find((candidate) => {
+            return candidate.number === fixture.week
+        })
+        const isWaiting = fixture.state.kind === 'scheduled' && fixture.override === undefined
+        const isOverdue = now.getTime() - fixture.kickoffAt.getTime() >= RESULT_OVERDUE_MS
+        if (week?.cutoffAt === null || week === undefined || !isWaiting || !isOverdue) {
+            continue
+        }
+
+        counts.set(fixture.week, (counts.get(fixture.week) ?? 0) + 1)
+    }
+
+    return [...counts].map(([weekNumber, count]) => {
+        return { kind: 'resultsOverdue', weekNumber, count } as const
+    })
+}
+
 function nextOpening(input: TickInput, alerts: TickAlert[]): WeekOpening | null {
     const weeks = [...input.weeks].sort(byNumber)
     const next = weeks.find((week) => {
@@ -146,6 +179,13 @@ function nextOpening(input: TickInput, alerts: TickAlert[]): WeekOpening | null 
     const cutoffAt = computeCutoff(weekFixtures, input.now)
     if (cutoffAt === null) {
         alerts.push({ kind: 'weekWithoutFixtures', weekNumber: next.number })
+        return null
+    }
+
+    // The first game still to come is under an hour away, or the tick ran very late. Opening the
+    // week now would lock it at once and pick for everyone. The admin sets the cut-off by hand.
+    if (cutoffAt.getTime() <= input.now.getTime()) {
+        alerts.push({ kind: 'cutoffInThePast', weekNumber: next.number, cutoffAt })
         return null
     }
 

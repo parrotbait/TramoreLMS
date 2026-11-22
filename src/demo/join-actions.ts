@@ -40,6 +40,8 @@ export async function joinDemoAction(
                 return { values, errors: {}, problem: 'nameTaken' }
             case 'closed':
                 return { values, errors: {}, problem: 'closed' }
+            case 'busy':
+                return { values, errors: {}, problem: 'busy' }
             case 'checkout':
                 checkout = result.checkout
                 break

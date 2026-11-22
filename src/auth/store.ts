@@ -7,6 +7,7 @@ import { and, count, eq, gt, isNull, sql } from 'drizzle-orm'
 import type { Database } from '@/db/client'
 import { magicLinks, people, sessions } from '@/db/schema'
 
+import { PLAYER_SESSION_RENEW_BELOW_MS, PLAYER_SESSION_TTL_MS } from './rules'
 import type { LinkPurpose } from './rules'
 import { hashToken, newToken } from './tokens'
 
@@ -44,11 +45,17 @@ export async function findOrCreatePerson(db: Database, email: string): Promise<P
     return person
 }
 
-export async function countLinksSince(db: Database, personId: string, since: Date): Promise<number> {
+/** Links of one kind. Player and admin links are counted apart, so one can never block the other. */
+export async function countLinksSince(
+    db: Database,
+    personId: string,
+    since: Date,
+    purpose: LinkPurpose,
+): Promise<number> {
     const [row] = await db
         .select({ value: count() })
         .from(magicLinks)
-        .where(and(eq(magicLinks.personId, personId), gt(magicLinks.createdAt, since)))
+        .where(and(eq(magicLinks.personId, personId), eq(magicLinks.purpose, purpose), gt(magicLinks.createdAt, since)))
 
     return row?.value ?? 0
 }
@@ -111,7 +118,12 @@ export interface SessionRecord {
 
 export async function findSession(db: Database, cookieValue: string, now: Date): Promise<SessionRecord | null> {
     const [record] = await db
-        .select({ personId: sessions.personId, email: people.email, isAdmin: sessions.isAdmin })
+        .select({
+            personId: sessions.personId,
+            email: people.email,
+            isAdmin: sessions.isAdmin,
+            expiresAt: sessions.expiresAt,
+        })
         .from(sessions)
         .innerJoin(people, eq(people.id, sessions.personId))
         .where(and(
@@ -119,8 +131,20 @@ export async function findSession(db: Database, cookieValue: string, now: Date):
             gt(sessions.expiresAt, now),
             isNull(people.deletedAt),
         ))
+    if (record === undefined) {
+        return null
+    }
 
-    return record ?? null
+    // A player in use stays signed in. Past the half-way point, the session starts again.
+    // An admin session never slides: it ends 7 days after the sign-in link was used.
+    const remaining = record.expiresAt.getTime() - now.getTime()
+    if (!record.isAdmin && remaining < PLAYER_SESSION_RENEW_BELOW_MS) {
+        await db.update(sessions)
+            .set({ expiresAt: new Date(now.getTime() + PLAYER_SESSION_TTL_MS) })
+            .where(eq(sessions.idHash, hashToken(cookieValue)))
+    }
+
+    return { personId: record.personId, email: record.email, isAdmin: record.isAdmin }
 }
 
 export async function deleteSession(db: Database, cookieValue: string) {

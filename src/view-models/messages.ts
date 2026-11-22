@@ -12,6 +12,8 @@ export function pickRejectionMessage(reason: PickRejection): string {
             return 'You’ve already used that team.'
         case 'teamNotAvailable':
             return 'You can’t pick that team this week.'
+        case 'gameStarted':
+            return 'That game has already started. Pick another team.'
         case 'notEligible':
             return 'You’re not in this week.'
         case 'unknownWeek':

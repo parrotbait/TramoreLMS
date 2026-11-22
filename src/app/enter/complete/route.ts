@@ -13,20 +13,22 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
-import { sessionExpiresAt } from '@/auth/rules'
+import { sessionCookieExpiresAt, sessionExpiresAt } from '@/auth/rules'
 import { setSessionCookie, siteUrl } from '@/auth/session'
 import { createSession } from '@/auth/store'
 import { getDatabase } from '@/db/client'
 import { mailerFromEnv } from '@/email/mailer'
 import { CHECKOUT_COOKIE } from '@/payments/checkout-cookie'
+import { attemptOf } from '@/payments/confirming'
 import { claimCheckoutSignIn, reconcileCheckout } from '@/payments/service'
 import { gatewayFromEnv } from '@/payments/stripe'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request): Promise<never> {
-    const sessionId = new URL(request.url).searchParams.get('session_id') ?? ''
-    const done = `/enter/done?session_id=${encodeURIComponent(sessionId)}`
+    const query = new URL(request.url).searchParams
+    const sessionId = query.get('session_id') ?? ''
+    const done = `/enter/done?session_id=${encodeURIComponent(sessionId)}&n=${attemptOf(query.get('n'))}`
     if (sessionId === '') {
         redirect(done)
     }
@@ -52,8 +54,8 @@ export async function GET(request: Request): Promise<never> {
     if (checkoutToken !== undefined && checkoutToken !== '') {
         const personId = await claimCheckoutSignIn(db, sessionId, checkoutToken, now)
         if (personId !== null) {
-            const expiresAt = sessionExpiresAt(false, now)
-            await setSessionCookie(await createSession(db, personId, false, expiresAt, now), expiresAt)
+            const cookieValue = await createSession(db, personId, false, sessionExpiresAt(false, now), now)
+            await setSessionCookie(cookieValue, sessionCookieExpiresAt(false, now))
             jar.delete({ name: CHECKOUT_COOKIE, path: '/enter' })
         }
     }

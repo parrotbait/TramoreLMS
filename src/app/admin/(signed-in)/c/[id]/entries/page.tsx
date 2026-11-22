@@ -1,13 +1,16 @@
 // Created by Claude driven by Eddie Long on 2026-11-04.
 
+import Form from 'next/form'
+
 import {
     addEntryAction,
+    changeEmailAction,
     recordBuybackAction,
     removePersonAction,
     renameEntryAction,
     withdrawEntryAction,
 } from '@/admin/actions'
-import { withdrawalWeek } from '@/admin/forms'
+import { matchesSearch, withdrawalWeek } from '@/admin/forms'
 import { loadAdminCompetition } from '@/admin/load'
 import type { AdminCompetition, PaymentRow } from '@/admin/load'
 import { CompetitionNav } from '@/components/admin/CompetitionNav'
@@ -17,17 +20,23 @@ import { formatDublin, formatEuro } from '@/lib/format'
 
 interface EntriesProps {
     readonly params: Promise<{ readonly id: string }>
+    readonly searchParams: Promise<{ readonly q?: string }>
 }
 
-export default async function EntriesPage({ params }: EntriesProps) {
+export default async function EntriesPage({ params, searchParams }: EntriesProps) {
     const { id } = await params
+    const query = ((await searchParams).q ?? '').trim()
     const data = await loadAdminCompetition(id)
     const { rows, currentWeek } = data
     const isBeforeWeekOne = withdrawalWeek(data.state.weeks, data.context.now) === 1
     const buybackFee = (rows.competition.buybackFeeCents / 100).toFixed(2)
-    const sorted = [...rows.entries].sort((left, right) => {
-        return left.displayName.localeCompare(right.displayName)
-    })
+    const sorted = [...rows.entries]
+        .filter((entry) => {
+            return matchesSearch(query, entry.displayName, data.emailOf.get(entry.id) ?? '')
+        })
+        .sort((left, right) => {
+            return left.displayName.localeCompare(right.displayName)
+        })
 
     return (
         <>
@@ -51,8 +60,25 @@ export default async function EntriesPage({ params }: EntriesProps) {
                 </form>
             </Card>
 
+            <Card title="Find a player">
+                <Form action={`/admin/c/${id}/entries`} className="flex flex-wrap items-end gap-3">
+                    <div className="min-w-0 flex-1">
+                        <Field label="Name or email" name="q" defaultValue={query} placeholder="Seán, or part of an email" />
+                    </div>
+                    <Submit tone="plain" pendingLabel="Searching…">Search</Submit>
+                </Form>
+                {query === ''
+                    ? null
+                    : (
+                        <p className="text-sm text-muted">
+                            Showing {sorted.length} of {rows.entries.length}.{' '}
+                            <a href={`/admin/c/${id}/entries`} className="font-semibold text-maroon underline">Show everyone</a>
+                        </p>
+                    )}
+            </Card>
+
             <Card
-                title={`Entries (${rows.entries.length})`}
+                title={query === '' ? `Entries (${rows.entries.length})` : `Entries (${sorted.length} found)`}
                 actions={<a href={`/admin/c/${id}/payments.csv`} className="text-sm font-semibold text-maroon underline">Download CSV</a>}
             >
                 <ul className="divide-y divide-line">
@@ -81,6 +107,17 @@ export default async function EntriesPage({ params }: EntriesProps) {
                                                     <Field label="New name" name="displayName" defaultValue={entry.displayName} required />
                                                     <ReasonField />
                                                     <Submit pendingLabel="Renaming…">Rename</Submit>
+                                                </form>
+                                            </ActionPanel>
+                                            <ActionPanel label="Correct their email">
+                                                <form action={changeEmailAction.bind(null, entry.id)} className="space-y-2">
+                                                    <p className="text-xs text-muted">
+                                                        For a typo. It changes for all of their entries.
+                                                        We send them a sign-in link at the new address.
+                                                    </p>
+                                                    <Field label="Right email" name="email" type="email" required />
+                                                    <ReasonField />
+                                                    <Submit pendingLabel="Correcting…">Correct the email</Submit>
                                                 </form>
                                             </ActionPanel>
                                             <ActionPanel label={isBeforeWeekOne ? 'Withdraw or refund' : 'Withdraw'}>

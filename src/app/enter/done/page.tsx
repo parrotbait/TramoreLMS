@@ -12,15 +12,18 @@ import { currentSession } from '@/auth/session'
 import { AuthCard } from '@/components/AuthCard'
 import { getDatabase } from '@/db/client'
 import { competitions, entries, payments } from '@/db/schema'
+import { attemptOf, shouldKeepChecking } from '@/payments/confirming'
 
 export const dynamic = 'force-dynamic'
 
 interface DonePageProps {
-    readonly searchParams: Promise<{ readonly session_id?: string }>
+    readonly searchParams: Promise<{ readonly session_id?: string; readonly n?: string }>
 }
 
 export default async function EnterDonePage({ searchParams }: DonePageProps) {
-    const sessionId = (await searchParams).session_id ?? ''
+    const params = await searchParams
+    const sessionId = params.session_id ?? ''
+    const attempt = attemptOf(params.n)
     const row = await paymentFor(sessionId)
 
     if (row === undefined) {
@@ -64,9 +67,28 @@ export default async function EnterDonePage({ searchParams }: DonePageProps) {
         )
     }
 
+    const encoded = encodeURIComponent(sessionId)
+    if (!shouldKeepChecking(attempt)) {
+        return (
+            <AuthCard title="Still confirming your payment">
+                <p className="text-sm text-muted">
+                    This is taking longer than usual. If you were charged, your payment is safe.
+                    We will add you as soon as it comes through.
+                </p>
+                <Link
+                    href={`/enter/complete?session_id=${encoded}`}
+                    className="block min-h-12 rounded-xl bg-maroon px-4 py-3 text-center font-bold text-on-maroon"
+                >
+                    Check again
+                </Link>
+                <p className="text-xs text-muted">Still nothing after a few minutes? Tell the organiser.</p>
+            </AuthCard>
+        )
+    }
+
     return (
         <AuthCard title="Confirming your payment…">
-            <meta httpEquiv="refresh" content={`3;url=/enter/complete?session_id=${encodeURIComponent(sessionId)}`} />
+            <meta httpEquiv="refresh" content={`3;url=/enter/complete?session_id=${encoded}&n=${attempt + 1}`} />
             <p className="text-sm text-muted">This usually takes a few seconds. The page will update by itself.</p>
         </AuthCard>
     )

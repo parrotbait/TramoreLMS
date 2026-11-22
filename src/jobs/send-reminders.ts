@@ -52,10 +52,20 @@ interface Tally {
     waiting: number
 }
 
-export async function sendReminders(db: Database, mailer: Mailer, now: Date, siteUrl: string): Promise<ReminderReport> {
+/**
+ * `deadlineAt` is a time in milliseconds. No new email is started after it, so a slow mail server
+ * can't use up the time the tick has. What is left goes on the next run, 10 minutes later.
+ */
+export async function sendReminders(
+    db: Database,
+    mailer: Mailer,
+    now: Date,
+    siteUrl: string,
+    deadlineAt: number = Number.POSITIVE_INFINITY,
+): Promise<ReminderReport> {
     const tally: Tally = { sent: 0, failed: 0, waiting: 0 }
     for (const competitionId of await activeCompetitionIds(db)) {
-        await remindFor(db, mailer, competitionId, now, now, siteUrl, tally)
+        await remindFor(db, mailer, competitionId, now, now, siteUrl, tally, deadlineAt)
     }
 
     return tally
@@ -88,9 +98,10 @@ async function remindFor(
     realNow: Date,
     siteUrl: string,
     tally: Tally,
+    deadlineAt: number = Number.POSITIVE_INFINITY,
 ) {
     for (const reminder of await dueReminders(db, competitionId, gameNow)) {
-        if (tally.sent + tally.failed >= MAX_EMAILS_PER_RUN) {
+        if (tally.sent + tally.failed >= MAX_EMAILS_PER_RUN || Date.now() >= deadlineAt) {
             tally.waiting += 1
             continue
         }

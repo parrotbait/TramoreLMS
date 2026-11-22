@@ -32,7 +32,7 @@ export async function verifyLinkAction(formData: FormData) {
         redirect('/auth/verify?error=invalid')
     }
 
-    await setSessionCookie(result.cookieValue, result.expiresAt)
+    await setSessionCookie(result.cookieValue, result.cookieExpiresAt)
     redirect(result.next)
 }
 

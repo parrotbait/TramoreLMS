@@ -145,6 +145,63 @@ describe('syncFixtures: postponements (Decision 7)', () => {
     })
 })
 
+describe('syncFixtures: when a postponement is seen', () => {
+    const BEFORE_CUTOFF = new Date('2026-11-21T09:00:00Z')
+
+    it('alerts the admin when a game is first seen as called off after the cut-off, as its pickers go through', () => {
+        const result = run({ primary: feed({ status: 'postponed' }), now: LATE_THAT_NIGHT })
+
+        expect(result.alerts).toEqual([
+            { kind: 'postponedAfterCutoff', fixtureId: 'f1', seenAt: LATE_THAT_NIGHT, cutoffAt: CUTOFF },
+        ])
+    })
+
+    it('says nothing when the call-off is seen before the cut-off, as players can pick again', () => {
+        const result = run({ primary: feed({ status: 'postponed' }), now: BEFORE_CUTOFF })
+
+        expect(result.alerts).toEqual([])
+        expect(result.changes).toEqual([
+            { kind: 'state', fixtureId: 'f1', state: { kind: 'postponed', at: BEFORE_CUTOFF } },
+        ])
+    })
+
+    it('alerts too when a game is moved weeks away, if that is first seen after the cut-off', () => {
+        const rearranged = feed({ kickoffAt: new Date('2027-02-10T19:45:00Z') })
+
+        expect(run({ primary: rearranged, now: LATE_THAT_NIGHT }).alerts).toHaveLength(1)
+    })
+
+    it('warns when a game marked as called off is back in the feed at about its first time', () => {
+        const fixture = stored({ state: { kind: 'postponed', at: SOON_AFTER } })
+
+        expect(run({ fixture, primary: feed({ status: 'scheduled' }) }).alerts).toEqual([
+            { kind: 'postponementLooksWrong', fixtureId: 'f1' },
+        ])
+        expect(run({ fixture, primary: feed({ status: 'finished', score: { home: 1, away: 0 } }) }).alerts).toEqual([
+            { kind: 'postponementLooksWrong', fixtureId: 'f1' },
+        ])
+    })
+
+    it('does not warn when a called-off game really has moved to a new date', () => {
+        const fixture = stored({ state: { kind: 'postponed', at: SOON_AFTER } })
+        const moved = feed({ kickoffAt: new Date('2027-02-10T19:45:00Z') })
+
+        expect(run({ fixture, primary: moved }).alerts).toEqual([])
+    })
+
+    it('does not undo the call-off by itself', () => {
+        const fixture = stored({ state: { kind: 'postponed', at: SOON_AFTER } })
+
+        expect(run({ fixture, primary: feed({ status: 'scheduled' }) }).changes).toEqual([])
+    })
+
+    it('warns about nothing for a game an admin has settled', () => {
+        const fixture = stored({ state: { kind: 'postponed', at: SOON_AFTER }, override: { kind: 'void' } })
+
+        expect(run({ fixture, primary: feed({ status: 'scheduled' }) }).alerts).toEqual([])
+    })
+})
+
 describe('syncFixtures: kick-off changes (Decision 12)', () => {
     it('moves the kick-off within the week, with no alert', () => {
         const later = new Date('2026-11-22T16:30:00Z')

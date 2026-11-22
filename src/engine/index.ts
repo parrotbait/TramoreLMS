@@ -29,6 +29,7 @@ export {
     availableTeams,
     compareTeamNames,
     isEligibleForWeek,
+    teamsPlayingIn,
     pickNeedsReplacing,
     validatePick,
 } from './picks'
@@ -44,4 +45,4 @@ export type {
     Standings,
     WeekReason,
 } from './standings'
-export { computeStandings, usedTeamIds } from './standings'
+export { computeStandings, usedTeamIds, usedTeamWeeks } from './standings'

@@ -128,3 +128,43 @@ function dublinParts(date: Date): Record<'year' | 'month' | 'day' | 'hour' | 'mi
 
     return { year: get('year'), month: get('month'), day: get('day'), hour: get('hour'), minute: get('minute') }
 }
+
+export type CutoffMove =
+    | { readonly ok: true }
+    | { readonly ok: false; readonly message: string }
+
+/**
+ * Can an admin move this cut-off? A cut-off can be moved earlier, or later while
+ * the week is still open. It can never be moved later once it has passed: by
+ * then everyone's picks are visible, and re-opening the week would let people
+ * change a pick after seeing the others. An admin who needs to help one player
+ * uses a pick override instead.
+ */
+export function checkCutoffMove(currentCutoff: Date | null, newCutoff: Date, now: Date): CutoffMove {
+    const hasPassed = currentCutoff !== null && currentCutoff.getTime() <= now.getTime()
+    const isLater = currentCutoff !== null && newCutoff.getTime() > currentCutoff.getTime()
+    if (hasPassed && isLater) {
+        return {
+            ok: false,
+            message: 'This week has locked, and everyone’s picks can be seen. A cut-off can’t be moved later now. '
+                + 'To help one player, use a pick override.',
+        }
+    }
+
+    return { ok: true }
+}
+
+/** Is this entry the admin's own? Compared by email, ignoring case. */
+export function isOwnEntry(adminEmail: string, entryEmail: string): boolean {
+    return adminEmail.trim().toLowerCase() === entryEmail.trim().toLowerCase()
+}
+
+/** Does a player match what the admin typed in the search box? Name or email, any case. An empty search matches all. */
+export function matchesSearch(query: string, displayName: string, email: string): boolean {
+    const needle = query.trim().toLowerCase()
+    if (needle === '') {
+        return true
+    }
+
+    return displayName.toLowerCase().includes(needle) || email.toLowerCase().includes(needle)
+}

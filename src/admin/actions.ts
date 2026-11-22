@@ -10,8 +10,10 @@ import { and, eq, inArray, isNull, ne } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
+import { requestSignInLink } from '@/auth/flows'
+import { authEnvironment, siteUrl } from '@/auth/session'
 import { createLink } from '@/auth/store'
-import { siteUrl } from '@/auth/session'
+import type { Database } from '@/db/client'
 import { getDatabase } from '@/db/client'
 import { createCompetition, replaceSchedule } from '@/db/competitions'
 import { toGameState } from '@/db/game-state'
@@ -42,7 +44,8 @@ import { openCompetitionForEntries } from '@/payments/service'
 import { gatewayFromEnv } from '@/payments/stripe'
 
 import { recordAudit, requiredReason } from './audit'
-import { parseDublinDateTime, parseEuro, parseFixtureOverride, seasonOf, withdrawalWeek } from './forms'
+import { checkCutoffMove, isOwnEntry, parseDublinDateTime, parseEuro, parseFixtureOverride, seasonOf, withdrawalWeek } from './forms'
+import { changePersonEmail } from './people'
 import { requireAdmin } from './guard'
 
 const MANUAL_METHODS = ['cash', 'revolut', 'other'] as const
@@ -395,6 +398,49 @@ export async function addEntryAction(competitionId: string, formData: FormData) 
     back(page, 'notice', `Added “${form.displayName}”. We emailed ${form.email} a sign-in link.`)
 }
 
+/**
+ * Corrects a mistyped email, for every entry the person has. We send a sign-in link to the
+ * new address, so they can get in at once. The audit log says that it changed, not what it was.
+ */
+export async function changeEmailAction(entryId: string, formData: FormData) {
+    const admin = await requireAdmin()
+    const entry = await entryOrBack(entryId)
+    const page = `/admin/c/${entry.competitionId}/entries`
+    const reason = requiredReason(formData.get('reason'))
+    if (reason === null) {
+        back(page, 'error', 'Give a reason, for example “mistyped gmial.com”.')
+    }
+
+    const result = await changePersonEmail(getDatabase(), entry.personId, text(formData, 'email'))
+    if (result.kind !== 'changed') {
+        back(page, 'error', changeEmailMessage(result.kind))
+    }
+
+    await recordAudit(getDatabase(), {
+        actorEmail: admin.email,
+        action: 'person.changeEmail',
+        targetType: 'person',
+        targetId: entry.personId,
+        reason,
+    })
+    await requestSignInLink(authEnvironment(), result.email, 'signin', '/pick')
+
+    back(page, 'notice', `Email corrected. We sent “${entry.displayName}” a sign-in link at the new address.`)
+}
+
+function changeEmailMessage(kind: 'invalid' | 'same' | 'taken' | 'noPerson'): string {
+    switch (kind) {
+        case 'invalid':
+            return 'That doesn’t look like an email address.'
+        case 'same':
+            return 'That is already their email.'
+        case 'taken':
+            return 'Another player already has that email. Two people can’t share one.'
+        case 'noPerson':
+            return 'That person’s details have been removed.'
+    }
+}
+
 export async function renameEntryAction(entryId: string, formData: FormData) {
     const admin = await requireAdmin()
     const db = getDatabase()
@@ -496,6 +542,8 @@ export async function withdrawEntryAction(entryId: string, formData: FormData) {
         })
     })
 
+    await flagOwnEntry(db, admin.email, entry, wantsRefund ? 'withdrew and refunded themselves' : 'withdrew themselves')
+
     const refundNote = wantsRefund ? ' Refunded.' : ''
     back(page, 'notice', `“${entry.displayName}” is withdrawn from Week ${fromWeek}.${refundNote}`)
 }
@@ -542,6 +590,8 @@ export async function recordBuybackAction(entryId: string, formData: FormData) {
             reason: text(formData, 'note') || `Buy-back paid by ${method}`,
         })
     })
+
+    await flagOwnEntry(db, admin.email, entry, 'recorded a buy-back for themselves')
 
     back(page, 'notice', `“${entry.displayName}” is back in for Week 2.`)
 }
@@ -701,6 +751,10 @@ export async function overridePickAction(entryId: string, weekId: string, formDa
         })
     })
 
+    await flagOwnEntry(db, admin.email, entry, outcome === 'clear'
+        ? `cleared their override for Week ${week.number}`
+        : `set their own result to ${outcome} for Week ${week.number}`)
+
     back(page, 'notice', outcome === 'clear'
         ? `“${entry.displayName}” follows their result again in Week ${week.number}.`
         : `“${entry.displayName}” is ${outcome} for Week ${week.number}.`)
@@ -721,6 +775,14 @@ export async function overrideCutoffAction(weekId: string, formData: FormData) {
     const reason = requiredReason(formData.get('reason'))
     if (cutoffAt === null || reason === null) {
         back(page, 'error', 'Choose a date and time, and give a reason.')
+    }
+
+    // A demo runs on its own clock. Everything else is on the real one.
+    const [competition] = await db.select().from(competitions).where(eq(competitions.id, week.competitionId))
+    const now = competition === undefined ? new Date() : competitionNow(competition, new Date())
+    const move = checkCutoffMove(week.cutoffAt, cutoffAt, now)
+    if (!move.ok) {
+        back(page, 'error', move.message)
     }
 
     await db.transaction(async (tx) => {
@@ -785,6 +847,24 @@ async function sendAddedEntryEmail(
     }
 
     return true
+}
+
+/**
+ * An admin who also plays may change their own entry, but every admin is told, so nobody
+ * judges their own game unseen. The alert goes out with the next tick's alert email.
+ */
+async function flagOwnEntry(db: Database, adminEmail: string, entry: typeof entries.$inferSelect, what: string) {
+    const [person] = await db.select({ email: people.email }).from(people).where(eq(people.id, entry.personId))
+    if (person === undefined || !isOwnEntry(adminEmail, person.email)) {
+        return
+    }
+
+    await db.insert(alerts).values({
+        competitionId: entry.competitionId,
+        kind: 'adminOwnEntry',
+        key: `adminOwnEntry:${entry.id}:${Date.now()}`,
+        message: `An admin ${what}, on their own entry “${entry.displayName}”. Check that it is right.`,
+    }).onConflictDoNothing()
 }
 
 function back(path: string, kind: 'notice' | 'error', message: string): never {

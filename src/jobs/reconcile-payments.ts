@@ -11,7 +11,11 @@ import { reconcilePendingCheckouts } from '@/payments/service'
 import type { ReconcileReport } from '@/payments/service'
 import { stripeGateway } from '@/payments/stripe'
 
-export async function reconcilePayments(db: Database, now: Date): Promise<ReconcileReport | null> {
+export async function reconcilePayments(
+    db: Database,
+    now: Date,
+    deadlineAt: number = Number.POSITIVE_INFINITY,
+): Promise<ReconcileReport | null> {
     const key = process.env['STRIPE_SECRET_KEY'] ?? ''
     if (key === '') {
         return null
@@ -24,5 +28,5 @@ export async function reconcilePayments(db: Database, now: Date): Promise<Reconc
         now,
         siteUrl: siteUrl(),
         adminEmails: process.env['ADMIN_EMAILS'],
-    })
+    }, deadlineAt)
 }

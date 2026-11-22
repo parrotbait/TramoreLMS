@@ -1,0 +1,20 @@
+name: The used teams start again when no team is left
+rule: Rule 2 / Rule 4 / Decision 8
+description: A player who has used every team playing this week starts again. Any team that plays can be picked, and an auto-pick takes the first one alphabetically. Nobody gets a free pass while a game is being played.
+entries: [ann, bob]
+weeks:
+  - fixtures:
+      - Arsenal v Chelsea 1-0
+      - Everton v Fulham 1-0
+    picks: { ann: Arsenal, bob: Everton }
+  - fixtures:
+      - Chelsea v Everton 0-1
+      - Arsenal v Fulham 2-0
+    picks: { ann: Everton, bob: Arsenal }
+    expect:
+      in: [ann, bob]
+  - fixtures:
+      - Arsenal v Everton 1-0
+    expect:
+      auto: { ann: Arsenal, bob: Arsenal }
+      in: [ann, bob]

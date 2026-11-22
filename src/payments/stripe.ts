@@ -35,8 +35,11 @@ export interface PaymentGateway {
 
 const MIN_EXPIRY_MS = 31 * 60 * 1000
 
+/** A hung Stripe call must not use up the whole 60 seconds a page or the tick has. */
+export const STRIPE_TIMEOUT_MS = 10_000
+
 export function stripeGateway(secretKey: string): PaymentGateway {
-    const stripe = new Stripe(secretKey)
+    const stripe = new Stripe(secretKey, { timeout: STRIPE_TIMEOUT_MS, maxNetworkRetries: 1 })
 
     return {
         createCheckout: async (request) => {

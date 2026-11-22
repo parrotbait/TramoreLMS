@@ -3,7 +3,17 @@
 import { describe, expect, it } from 'vitest'
 
 import { toCsv } from '../csv'
-import { parseDublinDateTime, parseEuro, parseFixtureOverride, seasonOf, toDublinInputValue, withdrawalWeek } from '../forms'
+import {
+    checkCutoffMove,
+    isOwnEntry,
+    matchesSearch,
+    parseDublinDateTime,
+    parseEuro,
+    parseFixtureOverride,
+    seasonOf,
+    toDublinInputValue,
+    withdrawalWeek,
+} from '../forms'
 import { moneyTotals } from '../money'
 import type { MoneyPayment } from '../money'
 
@@ -146,5 +156,64 @@ describe('parseEuro', () => {
 
     it.each(['', 'ten', '-5', '10.505', '99999'])('rejects “%s”', (text) => {
         expect(parseEuro(text)).toBeNull()
+    })
+})
+
+describe('checkCutoffMove', () => {
+    const now = new Date('2026-11-21T12:00:00Z')
+    const hours = (count: number) => {
+        return new Date(now.getTime() + count * 60 * 60 * 1000)
+    }
+
+    it('lets an admin move an open week’s cut-off earlier, or later', () => {
+        expect(checkCutoffMove(hours(5), hours(2), now)).toEqual({ ok: true })
+        expect(checkCutoffMove(hours(5), hours(9), now)).toEqual({ ok: true })
+    })
+
+    it('lets an admin set the cut-off of a week that has none yet', () => {
+        expect(checkCutoffMove(null, hours(3), now)).toEqual({ ok: true })
+    })
+
+    it('never re-opens a week that has locked, as everyone’s picks can be seen by then', () => {
+        const result = checkCutoffMove(hours(-1), hours(4), now)
+
+        expect(result.ok).toBe(false)
+        expect(result.ok ? '' : result.message).toContain('pick override')
+    })
+
+    it('still lets an admin lock a week sooner, or move a locked cut-off earlier', () => {
+        expect(checkCutoffMove(hours(5), hours(-1), now)).toEqual({ ok: true })
+        expect(checkCutoffMove(hours(-1), hours(-3), now)).toEqual({ ok: true })
+    })
+
+    it('treats a cut-off at exactly this moment as passed', () => {
+        expect(checkCutoffMove(now, hours(1), now).ok).toBe(false)
+    })
+})
+
+describe('isOwnEntry', () => {
+    it('matches the admin’s own email, in any case and with spaces', () => {
+        expect(isOwnEntry('boss@example.ie', 'Boss@Example.IE ')).toBe(true)
+    })
+
+    it('does not match another person', () => {
+        expect(isOwnEntry('boss@example.ie', 'helper@example.ie')).toBe(false)
+    })
+})
+
+describe('matchesSearch', () => {
+    it('matches part of a name or an email, in any case', () => {
+        expect(matchesSearch('sea', 'Seán M', 'x@example.ie')).toBe(false)
+        expect(matchesSearch('seán', 'Seán M', 'x@example.ie')).toBe(true)
+        expect(matchesSearch('EXAMPLE', 'Aoife', 'aoife@example.ie')).toBe(true)
+    })
+
+    it('matches everyone when the search is empty', () => {
+        expect(matchesSearch('', 'Aoife', 'a@b.ie')).toBe(true)
+        expect(matchesSearch('   ', 'Aoife', 'a@b.ie')).toBe(true)
+    })
+
+    it('matches nobody for text that is in no name or email', () => {
+        expect(matchesSearch('zzz', 'Aoife', 'aoife@example.ie')).toBe(false)
     })
 })

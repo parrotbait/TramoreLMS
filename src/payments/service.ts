@@ -77,14 +77,45 @@ export async function openCompetitionForEntries(db: Executor, now: Date): Promis
     return null
 }
 
+async function isFlooded(db: Executor, competitionId: string, email: string, now: Date): Promise<boolean> {
+    const [all] = await db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(entries)
+        .where(and(eq(entries.competitionId, competitionId), eq(entries.status, 'pending')))
+    if ((all?.total ?? 0) >= MAX_PENDING_PER_COMPETITION) {
+        return true
+    }
+
+    const [mine] = await db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(entries)
+        .innerJoin(people, eq(people.id, entries.personId))
+        .where(and(
+            eq(entries.competitionId, competitionId),
+            eq(people.email, email),
+            gte(entries.createdAt, new Date(now.getTime() - HOUR_MS)),
+            inArray(entries.status, ['pending', 'expired']),
+        ))
+
+    return (mine?.total ?? 0) >= MAX_PENDING_PER_EMAIL
+}
+
 /** Where to send the player, and the token to keep in their browser. */
 export interface CheckoutStart {
     readonly url: string
     readonly checkoutToken: string
 }
 
+/** Unpaid name holds one email can have in an hour. A person who mistyped needs two or three. */
+export const MAX_PENDING_PER_EMAIL = 3
+
+/** Unpaid name holds a competition can have at once. A launch rush is far below this. */
+export const MAX_PENDING_PER_COMPETITION = 200
+
 export type StartEntryResult =
     | { readonly kind: 'checkout'; readonly checkout: CheckoutStart }
+    /** Too many unpaid entries right now. Nothing was created, and nothing was asked of Stripe. */
+    | { readonly kind: 'busy' }
     | { readonly kind: 'invalid'; readonly errors: Readonly<Partial<Record<'displayName' | 'email', EntryFieldError>>> }
     | { readonly kind: 'nameTaken' }
     | { readonly kind: 'closed' }
@@ -154,6 +185,12 @@ export async function startEntry(
         }
 
         await expireHolds(tx, now, competition.id)
+
+        // Anyone can send this form, and each entry makes a Stripe session. Stop a flood early,
+        // before a person, an entry or a Stripe session is made.
+        if (await isFlooded(tx, competition.id, form.email, now)) {
+            return { kind: 'busy' } as const
+        }
 
         // Entering again undoes an earlier deletion of the email (Decision 17).
         await tx.insert(people).values({ email: form.email })
@@ -268,17 +305,17 @@ export async function claimCheckoutSignIn(
     checkoutToken: string,
     now: Date,
 ): Promise<string | null> {
-    // A demo payment is free, so it proves nothing about who owns the email. A new address is
-    // fine: nobody else is that person yet. If the address already belongs to a real player,
-    // the browser is not signed in, so nobody lands in their account. That person uses the
-    // emailed link.
-    const [demoCheck] = await db
-        .select({ isDemo: competitions.isDemo, personId: entries.personId })
+    // Paying does not prove who owns the email address: anyone can type someone else's address
+    // and pay. So the browser is signed in only when the person is new, with nothing paid yet
+    // except this entry. If the address already belongs to a player, they use the emailed link,
+    // and entering their address never lands anyone in their account. A demo payment is free,
+    // so it proves even less, and the same rule covers it.
+    const [target] = await db
+        .select({ personId: entries.personId, entryId: entries.id })
         .from(payments)
         .innerJoin(entries, eq(entries.id, payments.entryId))
-        .innerJoin(competitions, eq(competitions.id, entries.competitionId))
         .where(eq(payments.stripeSessionId, sessionId))
-    if (demoCheck?.isDemo === true && await hasRealEntry(db, demoCheck.personId)) {
+    if (target === undefined || await hasOtherPaidEntry(db, target.personId, target.entryId)) {
         return null
     }
 
@@ -300,13 +337,16 @@ export async function claimCheckoutSignIn(
     return entry?.personId ?? null
 }
 
-/** Has this person entered a real competition, whatever happened to the entry? */
-async function hasRealEntry(db: Database, personId: string): Promise<boolean> {
+/** Does this person already have a paid entry, in any competition, apart from this one? */
+async function hasOtherPaidEntry(db: Database, personId: string, entryId: string): Promise<boolean> {
     const [row] = await db
         .select({ id: entries.id })
         .from(entries)
-        .innerJoin(competitions, eq(competitions.id, entries.competitionId))
-        .where(and(eq(entries.personId, personId), eq(competitions.isDemo, false)))
+        .where(and(
+            eq(entries.personId, personId),
+            ne(entries.id, entryId),
+            inArray(entries.status, ['active', 'withdrawn']),
+        ))
         .limit(1)
 
     return row !== undefined
@@ -425,11 +465,24 @@ export async function confirmPayment(environment: PaymentEnvironment, command: P
  * confirm it now, without waiting for the webhook. Safe to repeat.
  */
 export async function reconcileCheckout(environment: PaymentEnvironment, sessionId: string) {
+    // Only ask Stripe about a Checkout we started. /enter/complete takes any session id from the
+    // address, and must not become a way for anyone to make our server call Stripe.
+    const [known] = await environment.db
+        .select({ id: payments.id })
+        .from(payments)
+        .where(eq(payments.stripeSessionId, sessionId))
+    if (known === undefined) {
+        return
+    }
+
     const command = commandFromSession(await environment.gateway.retrieveCheckout(sessionId))
     if (command.kind === 'paid') {
         await confirmPayment(environment, command)
     }
 }
+
+/** Checkouts checked per run. A flood of pending ones must not make the tick run out of time. */
+export const RECONCILE_BATCH = 20
 
 export interface ReconcileReport {
     readonly checked: number
@@ -445,7 +498,10 @@ export interface ReconcileReport {
  * expired ones. A player who pays and closes the tab before the webhook
  * arrives is confirmed within one tick.
  */
-export async function reconcilePendingCheckouts(environment: PaymentEnvironment): Promise<ReconcileReport> {
+export async function reconcilePendingCheckouts(
+    environment: PaymentEnvironment,
+    deadlineAt: number = Number.POSITIVE_INFINITY,
+): Promise<ReconcileReport> {
     const { db, gateway, now } = environment
     const pending = await db
         .select({ sessionId: payments.stripeSessionId })
@@ -456,12 +512,14 @@ export async function reconcilePendingCheckouts(environment: PaymentEnvironment)
             gte(payments.createdAt, new Date(now.getTime() - 24 * HOUR_MS)),
             lte(payments.createdAt, new Date(now.getTime() - 2 * 60 * 1000)),
         ))
+        .orderBy(payments.createdAt)
+        .limit(RECONCILE_BATCH)
 
     let confirmed = 0
     let failed = 0
     let errors = 0
     for (const { sessionId } of pending) {
-        if (sessionId === null) {
+        if (sessionId === null || Date.now() >= deadlineAt) {
             continue
         }
 
@@ -501,6 +559,7 @@ async function fillMissingFees(environment: PaymentEnvironment): Promise<number>
             eq(payments.feeCents, 0),
             gte(payments.createdAt, new Date(now.getTime() - 7 * 24 * HOUR_MS)),
         ))
+        .limit(RECONCILE_BATCH)
 
     let filled = 0
     for (const payment of missing) {

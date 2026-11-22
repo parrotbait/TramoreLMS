@@ -36,7 +36,11 @@ export interface FeedSource {
 
 export interface TickReport {
     readonly competitionId: string
-    readonly feed: 'synced' | 'skipped' | { readonly error: string }
+    /**
+     * `partial`: the main feed worked and the FPL cross-check did not. Postponements and
+     * kick-off changes were still applied. Results wait for FPL, so none are saved yet.
+     */
+    readonly feed: 'synced' | 'skipped' | { readonly error: string } | { readonly partial: string }
     readonly fixtureChanges: number
     readonly openedWeeks: readonly number[]
     readonly autoPicks: number
@@ -45,10 +49,40 @@ export interface TickReport {
     readonly newAlerts: number
 }
 
-export async function runTick(db: Database, now: Date, feeds: FeedSource | null): Promise<readonly TickReport[]> {
+export interface TickFailure {
+    readonly competitionId: string
+    readonly message: string
+}
+
+/**
+ * Ticks every active competition. One that throws is reported and skipped, so a
+ * broken competition (a demo, say) can never stop the real one from locking.
+ */
+export async function runTickSafely(
+    db: Database,
+    now: Date,
+    feeds: FeedSource | null,
+): Promise<{ readonly reports: readonly TickReport[]; readonly failures: readonly TickFailure[] }> {
     const reports: TickReport[] = []
+    const failures: TickFailure[] = []
     for (const competitionId of await activeCompetitionIds(db)) {
-        reports.push(await tickCompetition(db, competitionId, now, feeds))
+        try {
+            reports.push(await tickCompetition(db, competitionId, now, feeds))
+        } catch (error) {
+            console.error(`Tick failed for competition ${competitionId}:`, error)
+            failures.push({ competitionId, message: error instanceof Error ? error.message : String(error) })
+        }
+    }
+
+    return { reports, failures }
+}
+
+/** Like `runTickSafely`, but throws if any competition failed, after trying them all. */
+export async function runTick(db: Database, now: Date, feeds: FeedSource | null): Promise<readonly TickReport[]> {
+    const { reports, failures } = await runTickSafely(db, now, feeds)
+    const first = failures[0]
+    if (first !== undefined) {
+        throw new Error(`Tick failed for ${failures.length} competition(s). First: ${first.message}`)
     }
 
     return reports
@@ -166,7 +200,7 @@ async function tickCompetition(
 
         return {
             competitionId,
-            feed: fetched.kind === 'fetched' ? 'synced' : fetched.kind === 'skipped' ? 'skipped' : { error: fetched.error },
+            feed: feedReportOf(fetched),
             fixtureChanges,
             openedWeeks: plan.openings.map((opening) => {
                 return opening.weekNumber
@@ -180,9 +214,30 @@ async function tickCompetition(
 }
 
 type Fetched =
-    | { readonly kind: 'fetched'; readonly primary: readonly FeedMatch[]; readonly secondary: readonly FeedMatch[] }
+    | {
+        readonly kind: 'fetched'
+        readonly primary: readonly FeedMatch[]
+        readonly secondary: readonly FeedMatch[]
+        /** Why the cross-check feed is missing, or `null` if it worked. */
+        readonly secondaryError: string | null
+    }
     | { readonly kind: 'skipped' }
     | { readonly kind: 'failed'; readonly error: string }
+
+function feedReportOf(fetched: Fetched): TickReport['feed'] {
+    switch (fetched.kind) {
+        case 'skipped':
+            return 'skipped'
+        case 'failed':
+            return { error: fetched.error }
+        case 'fetched':
+            return fetched.secondaryError === null ? 'synced' : { partial: fetched.secondaryError }
+    }
+}
+
+function messageOf(error: unknown): string {
+    return error instanceof Error ? error.message : String(error)
+}
 
 /** Network calls happen outside the transaction. A feed failure never blocks locking. */
 async function fetchFeeds(db: Database, competitionId: string, feeds: FeedSource | null): Promise<Fetched> {
@@ -199,14 +254,24 @@ async function fetchFeeds(db: Database, competitionId: string, feeds: FeedSource
         const teamNames = rows.teams.map((team) => {
             return team.fullName
         })
-        const [primary, secondary] = await Promise.all([
+        // Each feed on its own: if the cross-check is down, the main feed still counts for
+        // postponements and kick-off changes. Results need both, so they wait.
+        const [primary, secondary] = await Promise.allSettled([
             feeds.primary(rows.competition.season),
             feeds.secondary(teamNames),
         ])
+        if (primary.status === 'rejected') {
+            return { kind: 'failed', error: messageOf(primary.reason) }
+        }
 
-        return { kind: 'fetched', primary, secondary }
+        return {
+            kind: 'fetched',
+            primary: primary.value,
+            secondary: secondary.status === 'fulfilled' ? secondary.value : [],
+            secondaryError: secondary.status === 'rejected' ? `The FPL cross-check failed: ${messageOf(secondary.reason)}` : null,
+        }
     } catch (error) {
-        return { kind: 'failed', error: error instanceof Error ? error.message : String(error) }
+        return { kind: 'failed', error: messageOf(error) }
     }
 }
 

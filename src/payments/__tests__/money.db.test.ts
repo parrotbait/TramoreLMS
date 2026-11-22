@@ -32,6 +32,8 @@ import {
     confirmPayment,
     expireHolds,
     failCheckout,
+    MAX_PENDING_PER_COMPETITION,
+    MAX_PENDING_PER_EMAIL,
     reconcilePendingCheckouts,
     startEntry,
 } from '../service'
@@ -427,6 +429,131 @@ describe('signing in after paying', () => {
 
         const personId = await claimCheckoutSignIn(db, started.sessionId, started.token, NOW)
         expect(personId).toBe((await entryOf(started.entryId)).personId)
+        expect(await claimCheckoutSignIn(db, started.sessionId, started.token, NOW)).toBeNull()
+    })
+})
+
+describe('a flood of entries', () => {
+    it('lets one email start only a few unpaid entries an hour, then stops before asking Stripe', async () => {
+        const { environment, gateway } = await rig()
+
+        const results = []
+        for (let attempt = 0; attempt < MAX_PENDING_PER_EMAIL + 2; attempt += 1) {
+            results.push((await startEntry(environment(), {
+                displayName: `Name ${attempt}`,
+                email: 'same@example.ie',
+            })).kind)
+        }
+
+        expect(results.filter((kind) => {
+            return kind === 'checkout'
+        })).toHaveLength(MAX_PENDING_PER_EMAIL)
+        expect(results.slice(MAX_PENDING_PER_EMAIL)).toEqual(['busy', 'busy'])
+        expect(gateway.requests).toHaveLength(MAX_PENDING_PER_EMAIL)
+    })
+
+    it('lets someone who mistyped carry on with the same name, as that is not a new entry', async () => {
+        const { environment } = await rig()
+
+        const results = []
+        for (let attempt = 0; attempt < MAX_PENDING_PER_EMAIL + 3; attempt += 1) {
+            results.push((await startEntry(environment(), { displayName: 'Aoife', email: 'aoife@example.ie' })).kind)
+        }
+
+        expect(new Set(results)).toEqual(new Set(['checkout']))
+    })
+
+    it('frees an email an hour later, once the old holds have run out', async () => {
+        const { db, environment } = await rig()
+        for (let attempt = 0; attempt < MAX_PENDING_PER_EMAIL; attempt += 1) {
+            await startEntry(environment(), { displayName: `Name ${attempt}`, email: 'same@example.ie' })
+        }
+
+        // The database stamps entries with the real clock. Put them on the test's clock.
+        await db.update(entries).set({ createdAt: NOW })
+        const later = new Date(NOW.getTime() + 2 * HOUR_MS)
+
+        const result = await startEntry(environment(later), { displayName: 'Fresh start', email: 'same@example.ie' })
+
+        expect(result.kind).toBe('checkout')
+    })
+
+    it('stops everyone at once when the whole competition is flooded, and creates nothing', async () => {
+        const { db, environment, gateway, competitionId } = await rig()
+        const flood = Array.from({ length: MAX_PENDING_PER_COMPETITION }, (_, index) => {
+            return { email: `bot-${index}@flood.example` }
+        })
+        const created = await db.insert(people).values(flood).returning({ id: people.id })
+        await db.insert(entries).values(created.map((person, index) => {
+            return {
+                competitionId,
+                personId: person.id,
+                displayName: `Flood ${index}`,
+                displayNameKey: `flood ${index}`,
+                status: 'pending' as const,
+                holdExpiresAt: new Date(NOW.getTime() + HOUR_MS),
+            }
+        }))
+        const before = (await db.select().from(people)).length
+
+        const result = await startEntry(environment(), { displayName: 'Real Player', email: 'real@example.ie' })
+
+        expect(result.kind).toBe('busy')
+        expect(gateway.requests).toEqual([])
+        expect((await db.select().from(people)).length).toBe(before)
+    })
+
+    it('does not count paid players against the limit', async () => {
+        const { environment, enter, paid } = await rig()
+        for (let attempt = 0; attempt < MAX_PENDING_PER_EMAIL + 2; attempt += 1) {
+            const started = await enter(`Paid ${attempt}`, `paid${attempt}@example.ie`)
+            await confirmPayment(environment(), paid(started.entryId, started.sessionId))
+        }
+
+        const result = await startEntry(environment(), { displayName: 'One more', email: 'more@example.ie' })
+
+        expect(result.kind).toBe('checkout')
+    })
+})
+
+describe('signing in the browser that paid', () => {
+    it('signs in a new person, once, and no one else with the same token', async () => {
+        const { db, environment, enter, paid } = await rig()
+        const started = await enter('Aoife', 'aoife@example.ie')
+        await confirmPayment(environment(), paid(started.entryId, started.sessionId))
+
+        const personId = await claimCheckoutSignIn(db, started.sessionId, started.token, NOW)
+
+        expect(personId).toBe((await entryOf(started.entryId)).personId)
+        expect(await claimCheckoutSignIn(db, started.sessionId, started.token, NOW)).toBeNull()
+    })
+
+    it('does not sign in as someone who already has a paid entry, so another person’s email is no way in', async () => {
+        const { db, environment, enter, paid } = await rig()
+        const first = await enter('Seán', 'sean@example.ie')
+        await confirmPayment(environment(), paid(first.entryId, first.sessionId))
+
+        // An attacker enters Seán’s address under another name, and pays.
+        const attacker = await enter('Not Seán', 'sean@example.ie')
+        await confirmPayment(environment(), paid(attacker.entryId, attacker.sessionId))
+
+        expect(await claimCheckoutSignIn(db, attacker.sessionId, attacker.token, NOW)).toBeNull()
+    })
+
+    it('signs in a person who abandoned an earlier try and then paid, as nothing of theirs was paid before', async () => {
+        const { db, environment, enter, paid } = await rig()
+        await enter('Aoife', 'aoife@example.ie')
+        const later = new Date(NOW.getTime() + 2 * HOUR_MS)
+        const second = await enter('Aoife M', 'aoife@example.ie', later)
+        await confirmPayment(environment(later), paid(second.entryId, second.sessionId))
+
+        expect(await claimCheckoutSignIn(db, second.sessionId, second.token, later)).not.toBeNull()
+    })
+
+    it('does not sign in at all before the payment is paid', async () => {
+        const { db, enter } = await rig()
+        const started = await enter('Aoife', 'aoife@example.ie')
+
         expect(await claimCheckoutSignIn(db, started.sessionId, started.token, NOW)).toBeNull()
     })
 })

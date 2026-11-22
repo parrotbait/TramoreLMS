@@ -256,7 +256,7 @@ describe('autoAssign: rule 4 (Decision 8)', () => {
         expect(second).toEqual([])
     })
 
-    it('gives an auto-pass when every team playing has been used', () => {
+    it('starts the used teams again when every team playing has been used, and assigns the first one', () => {
         const state = buildState({
             weeks: [
                 { fixtures: [['Arsenal', 'Chelsea', '1-0'], ['Everton', 'Fulham', '1-0']] },
@@ -268,9 +268,78 @@ describe('autoAssign: rule 4 (Decision 8)', () => {
             pickOverrides: [['bob', 2, 'through']],
         })
         expect(autoAssign(state, cutoffOf(3), 3)).toEqual([
-            { entryId: 'ann', week: 3, teamId: null, source: 'autoPass' },
-            { entryId: 'bob', week: 3, teamId: null, source: 'autoPass' },
+            { entryId: 'ann', week: 3, teamId: 'Arsenal', source: 'auto' },
+            { entryId: 'bob', week: 3, teamId: 'Arsenal', source: 'auto' },
         ])
+    })
+
+    it('never gives a pass while any team plays, however many teams the player has used', () => {
+        // Two teams, and ann uses one each week. By Week 3 she has used both, so the list starts again.
+        const weeks = Array.from({ length: 6 }, (_, index) => {
+            return { fixtures: [index % 2 === 0 ? ['Arsenal', 'Chelsea', '1-0'] as const : ['Arsenal', 'Chelsea', '0-1'] as const] }
+        })
+        const picks = ['Arsenal', 'Chelsea', 'Arsenal', 'Chelsea', 'Arsenal']
+        for (let played = 1; played <= 5; played += 1) {
+            const state = buildState({ weeks, entries: ['ann'], picks: { ann: picks.slice(0, played - 1) } })
+            const assigned = autoAssign(state, afterWeek(played), played)
+
+            expect(assigned.every((pick) => {
+                return pick.source !== 'autoPass' && pick.teamId !== null
+            })).toBe(true)
+        }
+    })
+
+    // ann and bob both win every week, so the game goes on. Four teams, two games a week.
+    const reset = buildState({
+        weeks: [
+            { fixtures: [['Arsenal', 'Chelsea', '1-0'], ['Everton', 'Fulham', '1-0']] },
+            { fixtures: [['Chelsea', 'Everton', '0-1'], ['Arsenal', 'Fulham', '2-0']] },
+            { fixtures: [['Chelsea', 'Fulham', '1-0'], ['Arsenal', 'Everton', '1-0']] },
+            { fixtures: [['Arsenal', 'Everton', '1-0']] },
+            { fixtures: [['Arsenal', 'Everton', '-'], ['Chelsea', 'Fulham', '-']] },
+        ],
+        entries: ['ann', 'bob'],
+        picks: {
+            ann: ['Arsenal', 'Everton', 'Chelsea', 'Arsenal'],
+            bob: ['Everton', 'Arsenal', 'Chelsea', 'Arsenal'],
+        },
+    })
+
+    it('refuses a used team while an unused team plays', () => {
+        // Week 3: Chelsea and Fulham play and ann has not used them, so Arsenal is still refused.
+        expect(validatePick(reset, afterWeek(2), 'ann', 3, 'Arsenal')).toEqual({ ok: false, reason: 'teamUsed' })
+        expect(validatePick(reset, afterWeek(2), 'ann', 3, 'Fulham')).toEqual({ ok: true })
+    })
+
+    it('lets a player pick any team that plays once every one of them is used', () => {
+        // Week 4: only Arsenal v Everton plays. ann has used both, so the list starts again.
+        const standings = computeStandings(reset, afterWeek(3))
+        const names = availableTeams(reset, standings, 'ann', 4, afterWeek(3)).map((team) => {
+            return team.id
+        })
+
+        expect(names).toEqual(['Arsenal', 'Everton'])
+        expect(validatePick(reset, afterWeek(3), 'ann', 4, 'Arsenal')).toEqual({ ok: true })
+    })
+
+    it('counts the weeks after a restart from the restart', () => {
+        // ann picked Arsenal in Week 4, after the restart. In Week 5 only Arsenal is used, so Everton is free.
+        const standings = computeStandings(reset, afterWeek(4))
+        const names = availableTeams(reset, standings, 'ann', 5, afterWeek(4)).map((team) => {
+            return team.id
+        })
+
+        expect(names).toEqual(['Chelsea', 'Everton', 'Fulham'])
+        expect(validatePick(reset, afterWeek(4), 'ann', 5, 'Arsenal')).toEqual({ ok: false, reason: 'teamUsed' })
+        expect(validatePick(reset, afterWeek(4), 'ann', 5, 'Everton')).toEqual({ ok: true })
+    })
+
+    it('scores a pick made after the restart as a normal pick, not a missing one', () => {
+        const entryWeek = computeStandings(reset, afterWeek(4)).entries.get('ann')?.weeks.find((week) => {
+            return week.week === 4
+        })
+
+        expect(entryWeek).toMatchObject({ outcome: 'through', reason: 'win' })
     })
 
     it('skips entries with a pick override for the week', () => {

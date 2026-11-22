@@ -18,6 +18,13 @@ function weeksOf(state: GameState, settled: readonly number[] = []): TickWeek[] 
     })
 }
 
+/** Only the alerts of one kind, so a test is about one thing. */
+function alertsOf(plan: ReturnType<typeof planTick>, kind: string) {
+    return plan.alerts.filter((alert) => {
+        return alert.kind === kind
+    })
+}
+
 function tick(state: GameState, now: Date, status: CompetitionStatus = 'running', settled: readonly number[] = []) {
     return planTick({ state, weeks: weeksOf(state, settled), status, now })
 }
@@ -91,19 +98,19 @@ describe('planTick: a week that is blocked by the week before it', () => {
     }
 
     it('warns the admin once the blocked week’s cut-off is within 24 hours', () => {
-        expect(tick(held, hours(23)).alerts).toEqual([
+        expect(alertsOf(tick(held, hours(23)), 'weekBlocked')).toEqual([
             { kind: 'weekBlocked', weekNumber: 2, cutoffAt: cutoffOf(2) },
         ])
     })
 
     it('keeps warning after the cut-off has passed, as players are then picked for', () => {
-        expect(tick(held, new Date(cutoffOf(2).getTime() + 60_000)).alerts).toContainEqual(
+        expect(alertsOf(tick(held, new Date(cutoffOf(2).getTime() + 60_000)), 'weekBlocked')).toEqual([
             { kind: 'weekBlocked', weekNumber: 2, cutoffAt: cutoffOf(2) },
-        )
+        ])
     })
 
     it('does not warn early, while there is plenty of time', () => {
-        expect(tick(held, hours(30)).alerts).toEqual([])
+        expect(alertsOf(tick(held, hours(30)), 'weekBlocked')).toEqual([])
     })
 
     it('stops warning once the week before has settled', () => {
@@ -116,7 +123,7 @@ describe('planTick: a week that is blocked by the week before it', () => {
             picks: { ann: ['Arsenal'], bob: ['Everton'] },
         })
 
-        expect(tick(settled, hours(5)).alerts).toEqual([])
+        expect(alertsOf(tick(settled, hours(5)), 'weekBlocked')).toEqual([])
     })
 
     it('warns about the first blocked week only, not the ones after it', () => {
@@ -131,9 +138,114 @@ describe('planTick: a week that is blocked by the week before it', () => {
         })
         const weekThreeAlmostDue = new Date(cutoffOf(3).getTime() - 60 * 60 * 1000)
 
-        expect(tick(three, weekThreeAlmostDue).alerts.filter((alert) => {
-            return alert.kind === 'weekBlocked'
-        })).toEqual([{ kind: 'weekBlocked', weekNumber: 2, cutoffAt: cutoffOf(2) }])
+        expect(alertsOf(tick(three, weekThreeAlmostDue), 'weekBlocked')).toEqual([
+            { kind: 'weekBlocked', weekNumber: 2, cutoffAt: cutoffOf(2) },
+        ])
+    })
+})
+
+describe('planTick: a week whose cut-off would already be past', () => {
+    // Week 1 is open. Week 2 is not. Its first game starts 30 minutes after the Week 1 cut-off.
+    const lateTick = (kickoffAfterCutoffMs: number) => {
+        const base = buildState({
+            weeks: [
+                { fixtures: [['Arsenal', 'Chelsea']] },
+                { fixtures: [['Arsenal', 'Everton']], open: false },
+            ],
+            entries: ['ann'],
+        })
+
+        return {
+            ...base,
+            fixtures: base.fixtures.map((fixture) => {
+                return fixture.week === 2
+                    ? { ...fixture, kickoffAt: new Date(cutoffOf(1).getTime() + kickoffAfterCutoffMs) }
+                    : fixture
+            }),
+        }
+    }
+
+    it('does not open it, and tells the admin, rather than locking it the moment it opens', () => {
+        // The cut-off would be 1 hour before a game that starts 30 minutes after the tick: 30 minutes ago.
+        const state = lateTick(30 * 60 * 1000)
+        const result = tick(state, cutoffOf(1))
+
+        expect(result.openings).toEqual([])
+        expect(alertsOf(result, 'cutoffInThePast')).toEqual([
+            { kind: 'cutoffInThePast', weekNumber: 2, cutoffAt: new Date(cutoffOf(1).getTime() - 30 * 60 * 1000) },
+        ])
+    })
+
+    it('opens it as normal when its cut-off is still ahead', () => {
+        const state = lateTick(3 * 60 * 60 * 1000)
+        const result = tick(state, cutoffOf(1))
+
+        expect(result.openings).toEqual([
+            { weekNumber: 2, cutoffAt: new Date(cutoffOf(1).getTime() + 2 * 60 * 60 * 1000) },
+        ])
+        expect(alertsOf(result, 'cutoffInThePast')).toEqual([])
+    })
+
+    it('ignores a game brought forward to before the tick, instead of pulling the cut-off into the past', () => {
+        const base = lateTick(3 * 60 * 60 * 1000)
+        const withEarlyGame: GameState = {
+            ...base,
+            fixtures: [
+                ...base.fixtures,
+                { ...base.fixtures[1]!, id: 'early', kickoffAt: new Date(cutoffOf(1).getTime() - 24 * 60 * 60 * 1000) },
+            ],
+        }
+
+        expect(tick(withEarlyGame, cutoffOf(1)).openings).toEqual([
+            { weekNumber: 2, cutoffAt: new Date(cutoffOf(1).getTime() + 2 * 60 * 60 * 1000) },
+        ])
+    })
+})
+
+describe('planTick: results that are overdue', () => {
+    const week = buildState({
+        weeks: [{ fixtures: [['Arsenal', 'Chelsea', '1-0'], ['Everton', 'Fulham', '-'], ['Brentford', 'Leeds', '-']] }],
+        entries: ['ann'],
+        picks: { ann: ['Arsenal'] },
+    })
+    const kickoff = week.fixtures[1]!.kickoffAt
+    const afterHours = (hours: number) => {
+        return new Date(kickoff.getTime() + hours * 60 * 60 * 1000)
+    }
+
+    it('tells the admin when games have no result 4 hours after kick-off, whatever the reason', () => {
+        // The games kick off two hours apart, so 6 hours after the first, both are over 4 hours old.
+        expect(alertsOf(tick(week, afterHours(6)), 'resultsOverdue')).toEqual([
+            { kind: 'resultsOverdue', weekNumber: 1, count: 2 },
+        ])
+        expect(alertsOf(tick(week, afterHours(4)), 'resultsOverdue')).toEqual([
+            { kind: 'resultsOverdue', weekNumber: 1, count: 1 },
+        ])
+    })
+
+    it('waits while a game could still be on', () => {
+        expect(alertsOf(tick(week, afterHours(3)), 'resultsOverdue')).toEqual([])
+    })
+
+    it('does not count a game an admin has settled, or one that is postponed', () => {
+        const settled = buildState({
+            weeks: [{
+                fixtures: [['Arsenal', 'Chelsea', '1-0'], ['Everton', 'Fulham', '-', '1-0'], ['Brentford', 'Leeds', 'P']],
+            }],
+            entries: ['ann'],
+            picks: { ann: ['Arsenal'] },
+        })
+
+        expect(alertsOf(tick(settled, afterHours(8)), 'resultsOverdue')).toEqual([])
+    })
+
+    it('does not warn about a week that has not opened', () => {
+        const notOpen = buildState({
+            weeks: [{ fixtures: [['Arsenal', 'Chelsea', '-']], open: false }],
+            entries: ['ann'],
+        })
+
+        expect(alertsOf(tick(notOpen, afterHours(48), 'open'), 'resultsOverdue')).toEqual([])
     })
 })
 
@@ -198,7 +310,7 @@ describe('planTick: settling and status', () => {
 })
 
 describe('planTick: auto-pass alerts', () => {
-    it('alerts the admin when a player gets an auto-pass', () => {
+    it('gives no auto-pass, and so no alert, when every team playing has been used: the list starts again', () => {
         const state = buildState({
             weeks: [
                 { fixtures: [['Arsenal', 'Chelsea', '1-0'], ['Everton', 'Fulham', '1-0']] },
@@ -209,10 +321,12 @@ describe('planTick: auto-pass alerts', () => {
             picks: { ann: ['Arsenal', 'Everton'], bob: ['Everton', 'Arsenal'] },
             pickOverrides: [['bob', 2, 'through']],
         })
+        const result = tick(state, cutoffOf(3))
 
-        expect(tick(state, cutoffOf(3)).alerts).toEqual([
-            { kind: 'autoPass', entryId: 'ann', weekNumber: 3 },
-            { kind: 'autoPass', entryId: 'bob', weekNumber: 3 },
+        expect(result.alerts).toEqual([])
+        expect(result.picks).toEqual([
+            { entryId: 'ann', week: 3, teamId: 'Arsenal', source: 'auto' },
+            { entryId: 'bob', week: 3, teamId: 'Arsenal', source: 'auto' },
         ])
     })
 })

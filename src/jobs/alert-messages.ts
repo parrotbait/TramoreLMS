@@ -53,6 +53,23 @@ export function syncAlertRow(alert: SyncAlert, names: AlertNames): AlertRow {
                 fixtureId: alert.fixtureId,
                 message: `${fixture} is missing from football-data.org. Check the fixture.`,
             }
+        case 'postponedAfterCutoff':
+            return {
+                kind: alert.kind,
+                key: `${alert.kind}:${alert.fixtureId}`,
+                fixtureId: alert.fixtureId,
+                message: `${fixture} was called off, and we first saw it at ${formatDublin(alert.seenAt)}, after the cut-off of `
+                    + `${formatDublin(alert.cutoffAt)}. Everyone who picked it is through. If it was called off before the cut-off, `
+                    + 'this may not be fair. Check it.',
+            }
+        case 'postponementLooksWrong':
+            return {
+                kind: alert.kind,
+                key: `${alert.kind}:${alert.fixtureId}`,
+                fixtureId: alert.fixtureId,
+                message: `${fixture} was marked as called off, but the feed now shows it at about its first time. `
+                    + 'Check whether it is being played. A call-off is not undone by itself.',
+            }
     }
 }
 
@@ -71,6 +88,23 @@ export function tickAlertRow(alert: TickAlert, names: AlertNames): AlertRow {
                 key: `${alert.kind}:${alert.weekNumber}`,
                 fixtureId: null,
                 message: `Week ${alert.weekNumber} has no fixtures, so it cannot open. Check the fixture list.`,
+            }
+        case 'cutoffInThePast':
+            return {
+                kind: alert.kind,
+                key: `${alert.kind}:${alert.weekNumber}`,
+                fixtureId: null,
+                message: `Week ${alert.weekNumber} was not opened. Its cut-off would be ${formatDublin(alert.cutoffAt)}, which has `
+                    + 'already passed, so players would have no time to pick. Set the cut-off by hand on the Week page.',
+            }
+        case 'resultsOverdue':
+            return {
+                kind: alert.kind,
+                key: `${alert.kind}:${alert.weekNumber}`,
+                fixtureId: null,
+                message: `${alert.count} ${alert.count === 1 ? 'game' : 'games'} in Week ${alert.weekNumber} `
+                    + 'still ha' + (alert.count === 1 ? 's' : 've') + ' no result, 4 hours or more after kick-off. '
+                    + 'Check the feeds, or set the results by hand on the Week page.',
             }
         case 'weekBlocked':
             return {

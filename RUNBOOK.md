@@ -87,8 +87,14 @@ The tick and the payment code write alerts to Admin → Alerts. The next tick em
 | Result held: no FPL result | FPL has no result 6 hours after kick-off. | Check the score. Set it with a fixture override. |
 | Result changed | A feed corrected a score. The standings were worked out again. | Check that it is right. Tell the group if someone's status changed. |
 | Missing from feed | football-data no longer lists the game. | Check whether it moved or was called off. Use a fixture override if needed. |
-| Pass | A player has used every team that plays this week. They get a pass. | Usually no action. Use a pick override if you decide otherwise. |
+| Pass | A player had no team to pick, because no game was played. They get a pass. This should now almost never happen: when a player has used every team that plays, their used teams start again. | Usually no action. Use a pick override if you decide otherwise. |
 | Week without fixtures | The next week has no games, so it can't open. | Check the fixture list on football-data.org. |
+| Week not opened: cut-off in the past | The week's first game still to come is under an hour away, or the tick ran very late. Opening it would lock it at once and pick for everyone. | Set the cut-off by hand on the Week page. The week then opens. |
+| Results overdue | Some games have no result 4 hours after kick-off, whatever the reason: a feed problem, a mismatch, or a team-name mapping. | Check the feeds. Set the results by hand on the Week page with a fixture override. |
+| Week blocked | Nobody can pick for the next week until this one settles, a result is held, and the next cut-off is within 24 hours. | Settle the held results on the Week page, or move the next cut-off. If you do nothing, everyone is auto-picked after the cut-off. |
+| Called off after the cut-off | A game was called off and we first saw it after the cut-off. Everyone who picked it is through. | Check the game was really called off before the cut-off. If it was, this may not be fair to others. |
+| Called-off game looks back on | A game marked as called off is back in the feed at about its first time. A call-off is never undone by itself. | Check whether it is being played. Use a fixture override to set the result. |
+| Admin changed their own entry | An admin who also plays set their own result, withdrew, or recorded a buy-back for their own entry. It is allowed, and everyone is told. | Check it is right. |
 | Payment: renamed | A player paid after their name hold ran out, and someone else had taken the name. They got a new name. | Rename them on the Entries page if needed. |
 | Payment: paid while withdrawn | A withdrawn entry paid. | Refund in Stripe, or reinstate the entry. |
 | Payment: duplicate | The same entry paid twice. | Refund one payment in the Stripe dashboard. |
@@ -101,7 +107,7 @@ Every override needs a reason. It goes in the audit log (Admin → Audit). The f
 
 - **Fixture override** (Week N → fixture). This sets a score, or marks the game called off. It changes the outcome for everyone who picked either team.
 - **Pick override** (Week N → player). This sets one player's outcome for one week. Their team stays used.
-- **Move cut-off** (Week N). This moves the cut-off. Use it only for a game that moved earlier.
+- **Move cut-off** (Week N). This moves the cut-off. Use it only for a game that moved earlier. **A cut-off that has passed can't be moved later.** By then everyone's picks can be seen, and re-opening the week would let people change a pick. To help one player, use a pick override.
 
 ---
 
@@ -113,6 +119,8 @@ Every override needs a reason. It goes in the audit log (Admin → Audit). The f
 | Record a cash buy-back | Entries → the player → Record buy-back. This works only for players out in Week 1, before the Week 2 cut-off. |
 | Rename a player | Entries → the player → Rename. Names are unique and up to 20 characters. |
 | Withdraw a player | Entries → the player → Withdraw, with a reason. They stop from the next week that hasn't locked. |
+| Find a player | Admin → the competition → Entries → Find a player. It searches names and emails. |
+| Fix a mistyped email | Entries → the player → Correct their email. It changes for all their entries, and we send a sign-in link to the new address. The audit log says it changed, not what it was. If another player already has that address, it is refused. |
 | Refund a player | Withdraw them and tick Refund. This tool works only before the Week 1 cut-off. The public rules make no promise about refunds, so you decide each one. Stripe payments are refunded through Stripe. For cash and Revolut, the site only records the refund, so hand the money back yourself. |
 | Delete someone's details on request | Entries → the player → Remove details. Type REMOVE and give a reason. This removes their email, and their entries become “Removed player”. |
 | Export payments for the treasurer | Entries → Download CSV. |
@@ -184,19 +192,17 @@ Neon also keeps its own short history for undoing a mistake. Check how far back 
 
 **One-time setup**
 
-1. **Make the key pair** on your own computer, in a folder **outside the project** (never inside this repo, or `git add` will pick it up):
+1. **Make the key pair.** On your own computer, in the project folder, run:
 
    ```
-   mkdir -p ~/lms-backup-keys && cd ~/lms-backup-keys
-   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out lms-backup-private.pem
-   openssl pkey -in lms-backup-private.pem -pubout -out lms-backup-public.pem
+   scripts/make-backup-key.sh
    ```
 
-   `.gitignore` also blocks `*.pem` as a second guard.
+   It makes the pair in `~/lms-backup-keys`, which is outside the project. It refuses to write inside any git repository, tests that the pair works, and copies the **public** key to your clipboard. It never prints the private key.
 
-2. **Keep `lms-backup-private.pem` safe, and out of GitHub and Vercel.** Use a password manager, and give a copy to a second person at the club. Without it a backup cannot be opened. With it, anyone who has a backup can read it.
+2. **Keep the private key safe, and out of GitHub and Vercel.** Put `lms-backup-private-<date>.pem` in a password manager, and give a copy to a second person at the club. Without it a backup cannot be opened. With it, anyone who has a backup can read it. `.gitignore` also blocks `*.pem` and `*.key`.
 3. **Make the Blob store.** In Vercel, go to the project → Storage → Create → Blob. Choose **Private**. Connect it to the project for Production. Vercel adds `BLOB_READ_WRITE_TOKEN` for you.
-4. **Add the public key.** In Vercel → Settings → Environment Variables, add `BACKUP_PUBLIC_KEY` for Production. Paste the whole contents of `lms-backup-public.pem`, including the BEGIN and END lines. Then redeploy.
+4. **Add the public key.** In Vercel → Settings → Environment Variables, add `BACKUP_PUBLIC_KEY` for Production. Paste the public key from your clipboard (or the whole contents of `lms-backup-public-<date>.pem`), including the BEGIN and END lines. Then redeploy.
 5. **Add the job on cron-job.org.**
    - Address: `https://tramorelastmanstanding.vercel.app/api/cron/backup`
    - Method: GET
@@ -204,6 +210,16 @@ Neon also keeps its own short history for undoing a mistake. Check how far back 
    - Schedule: every 6 hours.
    - Turn on failure notifications.
 6. **Run it once by hand.** Use “Test run” on cron-job.org. The response should say `"ok": true`. Then refresh the admin home page. It should say “Last backup less than an hour ago”.
+
+**Rotate the key** (if the private key may have been seen by anyone it should not, or when a person who held it leaves):
+
+1. Run `scripts/make-backup-key.sh`. It makes a new pair and copies the new public key.
+2. In Vercel, replace `BACKUP_PUBLIC_KEY` with the new public key, and redeploy.
+3. On cron-job.org, press “Test run”. The admin home page should show a fresh backup.
+4. Download that new backup from the Blob store and check it opens with the **new** private key (the restore steps below, into a scratch database).
+5. Only then, delete the **old** backups from the Blob store (Storage → the store → select → delete), or wait 30 days for them to expire. They can only be opened with the old key.
+6. Keep the old private key until step 5 is done. It is needed for any old backup you still want. Then delete it.
+7. If the old private key was ever in git, stop tracking it: `git rm --cached <file>`, commit and push. Rewriting history is not needed once the old backups are gone, because the old key then opens nothing.
 
 **Check it is working.** The admin home page shows the age of the last backup. cron-job.org emails you if a run fails. A response with `"ok": false` says what is wrong, for example a missing key.
 

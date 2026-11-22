@@ -11,6 +11,7 @@ import {
     parseAdminEmails,
     PLAYER_LINK_TTL_MS,
     safeNextPath,
+    sessionCookieExpiresAt,
     sessionExpiresAt,
 } from '../rules'
 import { hashToken, newToken } from '../tokens'
@@ -47,18 +48,29 @@ describe('link and session lifetimes', () => {
         expect(ADMIN_LINK_TTL_MS).toBe(15 * 60 * 1000)
     })
 
-    it('keeps players signed in for the season and admins for 7 days', () => {
-        const day = 24 * 60 * 60 * 1000
-        expect(sessionExpiresAt(false, now).getTime() - now.getTime()).toBe(300 * day)
+    const day = 24 * 60 * 60 * 1000
+
+    it('forgets a player after 30 days of not using the site, and an admin after 7 days', () => {
+        expect(sessionExpiresAt(false, now).getTime() - now.getTime()).toBe(30 * day)
         expect(sessionExpiresAt(true, now).getTime() - now.getTime()).toBe(7 * day)
+    })
+
+    it('lets the browser keep a player’s cookie for the season, as the server decides if it still works', () => {
+        expect(sessionCookieExpiresAt(false, now).getTime() - now.getTime()).toBe(300 * day)
+        expect(sessionCookieExpiresAt(true, now).getTime() - now.getTime()).toBe(7 * day)
     })
 })
 
 describe('canSendAnotherLink', () => {
-    it('allows 3 links an hour, then stops', () => {
-        expect(canSendAnotherLink(0)).toBe(true)
-        expect(canSendAnotherLink(2)).toBe(true)
-        expect(canSendAnotherLink(3)).toBe(false)
+    it('allows a player 5 links an hour, then stops', () => {
+        expect(canSendAnotherLink(0, 'signin')).toBe(true)
+        expect(canSendAnotherLink(4, 'signin')).toBe(true)
+        expect(canSendAnotherLink(5, 'signin')).toBe(false)
+    })
+
+    it('allows an admin only 3 links an hour', () => {
+        expect(canSendAnotherLink(2, 'admin')).toBe(true)
+        expect(canSendAnotherLink(3, 'admin')).toBe(false)
     })
 })
 

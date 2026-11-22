@@ -20,7 +20,7 @@ Status: plan agreed on 2026-10-31. Built by 2026-11-04. Day-to-day running and t
 | 6b | Prize | €300. It is a per-competition setting. |
 | 7 | Postponements | Postponed before the cut-off: the player must pick again. Postponed or cancelled after the cut-off: the player is through and the team is used. Abandoned: the league result counts if it is confirmed before the week settles. Otherwise it is treated as cancelled. |
 | 7b | Admin authority | The admin can override every automatic decision. Each override needs a reason and is written to an audit log. The feed never undoes an override. |
-| 8 | Auto-assign | At the cut-off, any active player with no valid pick gets the first team, in alphabetical order of club name, that they have not used and that has a fixture this week which is not postponed. Club names are the full official names with non-essential prefixes dropped. For example, “Bournemouth”, not “AFC Bournemouth”, so it sorts after Arsenal. If no team is left, they get a pass and the admin gets an alert. Auto-picks are labelled “Auto”. |
+| 8 | Auto-assign | At the cut-off, any active player with no valid pick gets the first team, in alphabetical order of club name, that they have not used and that has a fixture this week which is not postponed. Club names are the full official names with non-essential prefixes dropped. For example, “Bournemouth”, not “AFC Bournemouth”, so it sorts after Arsenal. If every team that plays has been used, the used teams start again first, so they always get a team (changed 2026-11-22, it used to be a free pass). Auto-picks are labelled “Auto”. |
 | 9 | Overrides | Two levels. A fixture override sets a fixture’s result and so affects everyone who picked it. A pick override sets one player’s outcome for one week. The team stays used after a pick override. There is no “bye” concept. |
 | 10 | Admin access | Magic link plus an email allowlist in the `ADMIN_EMAILS` environment variable. Admin links last 15 minutes and work once. Admin sessions last 7 days. No 2FA. |
 | 10b | Multi-season | Every season is a new competition. Past competitions are archived read-only. Each competition has its own team list. |
@@ -48,7 +48,7 @@ Status: plan agreed on 2026-10-31. Built by 2026-11-04. Day-to-day running and t
 This is the meaning of the rules. The page text is in `src/content/rules.ts`, in very simple English, with the values in `{braces}` filled from the competition settings.
 
 1. **Pick one team each game week.** A game week is a Premier League matchday. If your team wins, you are through to the next round. If your team draws or loses, you are out.
-2. **You can pick each team only once.** This includes auto-assigned teams and teams whose match was cancelled.
+2. **You can pick each team only once.** This includes auto-assigned teams and teams whose match was cancelled. If every team that plays this week is one you have used, your used teams start again, and you can pick any team that plays. The weeks after that count from the restart (changed 2026-11-22).
 3. **Buy-back after Week 1 only.** If you go out in Week 1, you can buy back in for {buybackFee} until the Week 2 cut-off. Your Week 1 team stays used. There is no buy-back after any other week.
 4. **The cut-off is 1 hour before the first match of the game week.** You can change your pick as often as you like until then. If you have no pick at the cut-off, you get the first team in alphabetical order (full club name) that you have not used and that has a match that week. The full order is listed below.
 5. **Postponed and cancelled matches.**
@@ -364,7 +364,7 @@ Initial scenarios:
 - buyback-team-stays-used
 - autoassign-alphabetical
 - autoassign-skips-postponed
-- autoassign-pass-when-none-left
+- autoassign-reset-when-none-left
 - postponed-before-cutoff-repick
 - postponed-after-cutoff-through
 - abandoned-result-stands

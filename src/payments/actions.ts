@@ -24,7 +24,7 @@ import type { CheckoutStart } from './service'
 export interface EntryFormState {
     readonly values: { readonly displayName: string; readonly email: string }
     readonly errors: Readonly<Partial<Record<'displayName' | 'email', EntryFieldError>>>
-    readonly problem: 'nameTaken' | 'closed' | 'paymentUnavailable' | null
+    readonly problem: 'nameTaken' | 'closed' | 'busy' | 'paymentUnavailable' | null
 }
 
 export async function startEntryAction(_previous: EntryFormState, formData: FormData): Promise<EntryFormState> {
@@ -43,6 +43,8 @@ export async function startEntryAction(_previous: EntryFormState, formData: Form
                 return { values, errors: {}, problem: 'nameTaken' }
             case 'closed':
                 return { values, errors: {}, problem: 'closed' }
+            case 'busy':
+                return { values, errors: {}, problem: 'busy' }
             case 'checkout':
                 checkout = result.checkout
                 break

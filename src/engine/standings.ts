@@ -4,7 +4,8 @@
 // Standings are never stored. Reopening a week means calling this again.
 
 import { isBuybackWindowOpen } from './buyback'
-import { fixtureForTeam, resolveWeekFixtures, teamResult } from './fixtures'
+import { fixtureForTeam, hasKickedOffBy, resolveWeekFixtures, teamResult } from './fixtures'
+import type { FixtureResolution } from './fixtures'
 import type {
     Entry,
     EntryId,
@@ -102,9 +103,27 @@ function buildIndex(state: GameState): GameIndex {
     }
 }
 
-/** Teams an entry has used in weeks before `beforeWeek`. */
-export function usedTeamIds(weeks: readonly EntryWeek[], beforeWeek: number): ReadonlySet<TeamId> {
-    const used = new Set<TeamId>()
+/**
+ * Teams an entry has used, with the week each was used in, for the weeks before
+ * `beforeWeek`.
+ *
+ * Each team can be used once (rule 2). When every team that plays a week is
+ * already used, there is nothing left to pick, so the list starts again for that
+ * week: the player may pick any team that plays. After that pick, the list
+ * restarts with that one team, and the weeks that follow count from there.
+ *
+ * `playing` is the teams that play in `beforeWeek`. Leave it out to get the
+ * list as it stands, without applying the restart to that week.
+ *
+ * The restart is found from the picks themselves. A team picked while it was
+ * already on the list can only have been picked after a restart.
+ */
+export function usedTeamWeeks(
+    weeks: readonly EntryWeek[],
+    beforeWeek: number,
+    playing?: ReadonlySet<TeamId>,
+): ReadonlyMap<TeamId, number> {
+    let used = new Map<TeamId, number>()
 
     for (const entryWeek of weeks) {
         const teamId = entryWeek.pick?.teamId
@@ -112,10 +131,29 @@ export function usedTeamIds(weeks: readonly EntryWeek[], beforeWeek: number): Re
             continue
         }
 
-        used.add(teamId)
+        if (used.has(teamId)) {
+            used = new Map()
+        }
+
+        used.set(teamId, entryWeek.week)
     }
 
-    return used
+    const isNothingLeft = playing !== undefined
+        && playing.size > 0
+        && [...playing].every((teamId) => {
+            return used.has(teamId)
+        })
+
+    return isNothingLeft ? new Map() : used
+}
+
+/** Teams an entry has used. See `usedTeamWeeks` for the restart when there is nothing left to pick. */
+export function usedTeamIds(
+    weeks: readonly EntryWeek[],
+    beforeWeek: number,
+    playing?: ReadonlySet<TeamId>,
+): ReadonlySet<TeamId> {
+    return new Set(usedTeamWeeks(weeks, beforeWeek, playing).keys())
 }
 
 export function computeStandings(state: GameState, now: Date): Standings {
@@ -233,7 +271,8 @@ function playWeek(
                 : { ...base, outcome: 'pending', reason: 'awaitingPick' }
         }
 
-        const used = usedTeamIds(requireRecord(records, entryId).weeks, week.number)
+        const playing = teamsPlaying(weekFixtures, resolutions, week.cutoffAt)
+        const used = usedTeamIds(requireRecord(records, entryId).weeks, week.number, playing)
         const fixture = fixtureForTeam(weekFixtures, pick.teamId)
         if (used.has(pick.teamId) || fixture === undefined) {
             return { ...base, outcome: 'pending', reason: 'awaitingPick' }
@@ -255,6 +294,31 @@ function playWeek(
                 return { ...base, outcome: 'pending', reason: 'awaitingResult' }
         }
     })
+}
+
+/**
+ * The teams with a game this week that was not postponed before the cut-off and
+ * had not kicked off by it. This is the same set `availableTeams` uses at the
+ * cut-off (`teamsPlayingIn` in picks.ts), so a pick that was valid when it was
+ * made is never judged invalid here.
+ */
+function teamsPlaying(
+    weekFixtures: readonly Fixture[],
+    resolutions: ReadonlyMap<string, FixtureResolution>,
+    cutoffAt: Date | null,
+): ReadonlySet<TeamId> {
+    const playing = new Set<TeamId>()
+    for (const fixture of weekFixtures) {
+        const hasStarted = cutoffAt !== null && hasKickedOffBy(fixture, cutoffAt)
+        if (resolutions.get(fixture.id)?.kind === 'removed' || hasStarted) {
+            continue
+        }
+
+        playing.add(fixture.homeTeamId)
+        playing.add(fixture.awayTeamId)
+    }
+
+    return playing
 }
 
 /** "Through" is final at once. "Out" is provisional, because everyone may go out together. */
