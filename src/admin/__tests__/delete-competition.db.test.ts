@@ -94,19 +94,33 @@ describe('deleteDraftCompetition', () => {
         expect(await database.db.select().from(payments)).toEqual([])
     })
 
-    it('refuses when any payment is real money, and deletes nothing', async () => {
+    it('refuses live Stripe payments, even when the admin says manual ones were tests', async () => {
         const id = await seedCompetition(database.db, { status: 'draft', entriesOpen: false })
         await enter(id, 'ann', { method: 'stripe', sessionId: 'cs_test_1' })
         await enter(id, 'bob', { method: 'cash' })
         await enter(id, 'cat', { method: 'stripe', sessionId: 'cs_live_3' })
 
-        const result = await deleteDraftCompetition(database.db, id, 'admin@example.com', 'testing')
+        const result = await deleteDraftCompetition(database.db, id, 'admin@example.com', 'testing', { manualPaymentsAreTests: true })
 
-        expect(result).toEqual({ kind: 'realMoney', paymentCount: 2 })
+        expect(result).toEqual({ kind: 'liveMoney', paymentCount: 1 })
         expect(await competitionCount()).toBe(1)
         expect((await database.db.select().from(entries)).length).toBe(3)
         expect((await database.db.select().from(payments)).length).toBe(3)
         expect(await database.db.select().from(auditLog)).toEqual([])
+    })
+
+    it('asks for confirmation before deleting cash or Revolut payments, as it cannot tell a test', async () => {
+        const id = await seedCompetition(database.db, { status: 'draft', entriesOpen: false })
+        await enter(id, 'ann', { method: 'stripe', sessionId: 'cs_test_1' })
+        await enter(id, 'bob', { method: 'cash' })
+
+        const refused = await deleteDraftCompetition(database.db, id, 'admin@example.com', 'testing')
+        expect(refused).toEqual({ kind: 'manualMoney', paymentCount: 1 })
+        expect(await competitionCount()).toBe(1)
+
+        const allowed = await deleteDraftCompetition(database.db, id, 'admin@example.com', 'testing', { manualPaymentsAreTests: true })
+        expect(allowed).toMatchObject({ kind: 'deleted', entryCount: 2 })
+        expect(await competitionCount()).toBe(0)
     })
 
     it('refuses a competition that is not a draft', async () => {

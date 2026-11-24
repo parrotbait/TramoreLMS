@@ -2,10 +2,12 @@
 //
 // Deleting a draft competition, for example one used for testing.
 //
-// An empty draft can always go. A draft with entries can go only if none of its
-// payments is real money. Stripe test payments (session ids that start with
-// “cs_test_”) are not real money. Cash, Revolut and live Stripe payments are.
-// If any exist, nothing is deleted, as the treasurer needs that record.
+// An empty draft can always go. A draft with entries can go if no real money
+// was taken. Payments that never completed (pending or failed) moved no money.
+//   - Stripe test payments (session ids that start with “cs_test_”) are fine.
+//   - Cash, Revolut and other payments are added by hand, so the code can’t tell
+//     a test from the real thing. The admin must confirm that they were tests.
+//   - Live Stripe payments are never deleted, as the treasurer needs the record.
 
 import { eq, inArray } from 'drizzle-orm'
 
@@ -21,8 +23,10 @@ export type DeleteDraftResult =
     | { readonly kind: 'noCompetition' }
     | { readonly kind: 'demo' }
     | { readonly kind: 'notDraft' }
-    /** Real money was taken, so the record must stay. */
-    | { readonly kind: 'realMoney'; readonly paymentCount: number }
+    /** Live Stripe payments exist. The record must stay. */
+    | { readonly kind: 'liveMoney'; readonly paymentCount: number }
+    /** Payments added by hand exist, and the admin hasn’t said they were tests. */
+    | { readonly kind: 'manualMoney'; readonly paymentCount: number }
 
 /** True when the payment is a Stripe test payment, which moved no real money. */
 export function isTestPayment(payment: { readonly method: string; readonly stripeSessionId: string | null }): boolean {
@@ -38,6 +42,7 @@ export async function deleteDraftCompetition(
     competitionId: string,
     actorEmail: string,
     reason: string,
+    options: { readonly manualPaymentsAreTests: boolean } = { manualPaymentsAreTests: false },
 ): Promise<DeleteDraftResult> {
     return db.transaction(async (tx) => {
         // Lock the competition, so nothing is entered while we check.
@@ -69,14 +74,29 @@ export async function deleteDraftCompetition(
         const paymentRows = entryIds.length === 0
             ? []
             : await tx
-                .select({ id: payments.id, method: payments.method, stripeSessionId: payments.stripeSessionId })
+                .select({
+                    id: payments.id,
+                    method: payments.method,
+                    status: payments.status,
+                    stripeSessionId: payments.stripeSessionId,
+                })
                 .from(payments)
                 .where(inArray(payments.entryId, entryIds))
-        const realPayments = paymentRows.filter((payment) => {
-            return !isTestPayment(payment)
+        const moved = paymentRows.filter((payment) => {
+            return payment.status === 'paid' || payment.status === 'refunded'
         })
-        if (realPayments.length > 0) {
-            return { kind: 'realMoney', paymentCount: realPayments.length } as const
+        const live = moved.filter((payment) => {
+            return payment.method === 'stripe' && !isTestPayment(payment)
+        })
+        if (live.length > 0) {
+            return { kind: 'liveMoney', paymentCount: live.length } as const
+        }
+
+        const manual = moved.filter((payment) => {
+            return payment.method !== 'stripe'
+        })
+        if (manual.length > 0 && !options.manualPaymentsAreTests) {
+            return { kind: 'manualMoney', paymentCount: manual.length } as const
         }
 
         if (paymentRows.length > 0) {
@@ -95,7 +115,7 @@ export async function deleteDraftCompetition(
                 season: competition.season,
                 startMatchday: competition.startMatchday,
                 entries: entryIds.length,
-                testPayments: paymentRows.length,
+                payments: paymentRows.length,
             },
             reason,
         })

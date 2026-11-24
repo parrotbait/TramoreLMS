@@ -91,7 +91,7 @@ export default async function EntriesPage({ params, searchParams }: EntriesProps
                                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                                     <div>
                                         <p className="font-semibold">{entry.displayName}</p>
-                                        <p className="text-xs text-muted">{data.emailOf.get(entry.id)}</p>
+                                        <p className="text-sm break-all">{data.emailOf.get(entry.id)}</p>
                                     </div>
                                     <div className="text-right text-sm">
                                         <p className="font-semibold">{statusOf(entry, data)}</p>
@@ -115,7 +115,13 @@ export default async function EntriesPage({ params, searchParams }: EntriesProps
                                                         For a typo. It changes for all of their entries.
                                                         We send them a sign-in link at the new address.
                                                     </p>
-                                                    <Field label="Right email" name="email" type="email" required />
+                                                    <Field
+                                                        label="Right email"
+                                                        name="email"
+                                                        type="email"
+                                                        defaultValue={data.emailOf.get(entry.id) ?? ''}
+                                                        required
+                                                    />
                                                     <ReasonField />
                                                     <Submit pendingLabel="Correcting…">Correct the email</Submit>
                                                 </form>

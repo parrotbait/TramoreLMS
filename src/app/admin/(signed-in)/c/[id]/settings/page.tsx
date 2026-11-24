@@ -94,12 +94,16 @@ export default async function CompetitionSettings({ params }: SettingsProps) {
                             Removes a draft, for example one you used for testing.
                             Its weeks, fixtures, entries and picks go too.
                             Entries paid with Stripe test payments are fine.
-                            If anyone paid real money, it can’t be deleted.
+                            If anyone paid with a live card payment, it can’t be deleted.
                             It can’t be undone.
                         </p>
                         <ActionPanel label="Delete this competition">
                             <form action={deleteCompetitionAction.bind(null, id)} className="space-y-3">
                                 <Field label="Reason (saved in the audit log)" name="reason" placeholder="For example: made by mistake" />
+                                <label className="flex items-start gap-2 text-sm">
+                                    <input type="checkbox" name="manualAreTests" className="mt-0.5 h-5 w-5" />
+                                    Any cash or Revolut entries here were only tests
+                                </label>
                                 <Field label="Type DELETE to confirm" name="confirm" required />
                                 <Submit tone="danger" pendingLabel="Deleting…">Delete</Submit>
                             </form>

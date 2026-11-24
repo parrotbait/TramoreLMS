@@ -268,7 +268,13 @@ export async function deleteCompetitionAction(competitionId: string, formData: F
     }
 
     const reason = requiredReason(formData.get('reason')) ?? 'Deleted'
-    const result = await deleteDraftCompetition(getDatabase(), competitionId, admin.email, reason)
+    const result = await deleteDraftCompetition(
+        getDatabase(),
+        competitionId,
+        admin.email,
+        reason,
+        { manualPaymentsAreTests: formData.get('manualAreTests') === 'on' },
+    )
     switch (result.kind) {
         case 'noCompetition':
             back('/admin', 'error', 'No such competition.')
@@ -276,8 +282,10 @@ export async function deleteCompetitionAction(competitionId: string, formData: F
             back(page, 'error', 'This is a demo. Remove it on the Demo page.')
         case 'notDraft':
             back(page, 'error', 'Only a draft can be deleted. Deactivate it first.')
-        case 'realMoney':
-            back(page, 'error', `${result.paymentCount} payment${result.paymentCount === 1 ? ' was' : 's were'} real money, so this competition can’t be deleted. Withdraw and refund those entries first.`)
+        case 'liveMoney':
+            back(page, 'error', `${result.paymentCount} live Stripe payment${result.paymentCount === 1 ? '' : 's'} took real money, so this competition can’t be deleted. Withdraw and refund those entries first.`)
+        case 'manualMoney':
+            back(page, 'error', `${result.paymentCount} payment${result.paymentCount === 1 ? ' was' : 's were'} added by hand (cash or Revolut). Tick the box to say they were only tests, then try again.`)
         case 'deleted':
             back('/admin', 'notice', `“${result.name}” is deleted${result.entryCount === 0 ? '' : ` with ${result.entryCount} test ${result.entryCount === 1 ? 'entry' : 'entries'}`}.`)
     }
