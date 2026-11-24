@@ -6,6 +6,8 @@
 import type { LinkPurpose } from '@/auth/rules'
 import { brand, colours } from '@/theme/tokens'
 
+import { button, emailLayout, escapeHtml, note, paragraph } from './layout'
+
 export interface EmailContent {
     readonly subject: string
     readonly text: string
@@ -33,25 +35,16 @@ export function signInEmail(link: string, purpose: LinkPurpose): EmailContent {
         `Last Man Standing · ${brand.fundraisingLine}`,
     ].join('\n')
 
-    const html = `<!doctype html>
-<html lang="en-IE">
-<body style="margin:0;padding:24px;background:${colours.subtle};font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:${colours.text}">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:0 auto;background:${colours.surface};border-radius:16px;overflow:hidden">
-    <tr><td style="background:${colours.maroon};color:${colours.onMaroon};padding:20px 24px">
-      <div style="font-size:20px;font-weight:700">Last Man Standing</div>
-      <div style="font-size:13px;opacity:0.9">${escapeHtml(brand.fundraisingLine)}</div>
-    </td></tr>
-    <tr><td style="padding:24px">
-      <p style="margin:0 0 20px;font-size:16px">${escapeHtml(intro)}</p>
-      <p style="margin:0 0 20px">
-        <a href="${escapeHtml(link)}" style="display:inline-block;background:${colours.maroon};color:${colours.onMaroon};text-decoration:none;font-weight:700;padding:14px 22px;border-radius:12px">Sign in</a>
-      </p>
-      <p style="margin:0 0 8px;font-size:13px;color:${colours.muted}">${escapeHtml(footer)}</p>
-      <p style="margin:0;font-size:12px;color:${colours.muted};word-break:break-all">${escapeHtml(link)}</p>
-    </td></tr>
-  </table>
-</body>
-</html>`
+    const html = emailLayout({
+        title: 'Last Man Standing',
+        anyLink: link,
+        body: [
+            paragraph(intro, { bottom: 20 }),
+            button(link, 'Sign in'),
+            note(footer),
+            note(link, { bottom: 0, breakAll: true }),
+        ].join('\n'),
+    })
 
     return { subject, text, html }
 }
@@ -67,24 +60,15 @@ export function welcomeEmail(link: string, competitionName: string, isDemo = fal
 
     const text = [intro, '', next, link, '', footer, '', `Last Man Standing · ${brand.fundraisingLine}`].join('\n')
 
-    const html = `<!doctype html>
-<html lang="en-IE">
-<body style="margin:0;padding:24px;background:${colours.subtle};font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:${colours.text}">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:0 auto;background:${colours.surface};border-radius:16px;overflow:hidden">
-    <tr><td style="background:${colours.maroon};color:${colours.onMaroon};padding:20px 24px">
-      <div style="font-size:20px;font-weight:700">You’re in!</div>
-      <div style="font-size:13px;opacity:0.9">${escapeHtml(brand.fundraisingLine)}</div>
-    </td></tr>
-    <tr><td style="padding:24px">
-      <p style="margin:0 0 16px;font-size:16px">${escapeHtml(intro)}</p>
-      <p style="margin:0 0 20px">
-        <a href="${escapeHtml(link)}" style="display:inline-block;background:${colours.maroon};color:${colours.onMaroon};text-decoration:none;font-weight:700;padding:14px 22px;border-radius:12px">Make your pick</a>
-      </p>
-      <p style="margin:0;font-size:13px;color:${colours.muted}">${escapeHtml(footer)}</p>
-    </td></tr>
-  </table>
-</body>
-</html>`
+    const html = emailLayout({
+        title: 'You’re in!',
+        anyLink: link,
+        body: [
+            paragraph(intro),
+            button(link, 'Make your pick'),
+            note(footer, { bottom: 0 }),
+        ].join('\n'),
+    })
 
     return { subject, text, html }
 }
@@ -98,24 +82,15 @@ export function addedEntryEmail(link: string, competitionName: string, displayNa
 
     const text = [intro, '', next, link, '', footer, '', `Last Man Standing · ${brand.fundraisingLine}`].join('\n')
 
-    const html = `<!doctype html>
-<html lang="en-IE">
-<body style="margin:0;padding:24px;background:${colours.subtle};font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:${colours.text}">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:0 auto;background:${colours.surface};border-radius:16px;overflow:hidden">
-    <tr><td style="background:${colours.maroon};color:${colours.onMaroon};padding:20px 24px">
-      <div style="font-size:20px;font-weight:700">You’re in!</div>
-      <div style="font-size:13px;opacity:0.9">${escapeHtml(brand.fundraisingLine)}</div>
-    </td></tr>
-    <tr><td style="padding:24px">
-      <p style="margin:0 0 16px;font-size:16px">${escapeHtml(intro)}</p>
-      <p style="margin:0 0 20px">
-        <a href="${escapeHtml(link)}" style="display:inline-block;background:${colours.maroon};color:${colours.onMaroon};text-decoration:none;font-weight:700;padding:14px 22px;border-radius:12px">Make your pick</a>
-      </p>
-      <p style="margin:0;font-size:13px;color:${colours.muted}">${escapeHtml(footer)}</p>
-    </td></tr>
-  </table>
-</body>
-</html>`
+    const html = emailLayout({
+        title: 'You’re in!',
+        anyLink: link,
+        body: [
+            paragraph(intro),
+            button(link, 'Make your pick'),
+            note(footer, { bottom: 0 }),
+        ].join('\n'),
+    })
 
     return { subject, text, html }
 }
@@ -153,26 +128,17 @@ export function reminderEmail(link: string, details: ReminderDetails): EmailCont
         `Last Man Standing · ${brand.fundraisingLine}`,
     ].join('\n')
 
-    const html = `<!doctype html>
-<html lang="en-IE">
-<body style="margin:0;padding:24px;background:${colours.subtle};font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:${colours.text}">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:0 auto;background:${colours.surface};border-radius:16px;overflow:hidden">
-    <tr><td style="background:${colours.maroon};color:${colours.onMaroon};padding:20px 24px">
-      <div style="font-size:20px;font-weight:700">Week ${details.weekNumber} pick needed</div>
-      <div style="font-size:13px;opacity:0.9">${escapeHtml(brand.fundraisingLine)}</div>
-    </td></tr>
-    <tr><td style="padding:24px">
-      <p style="margin:0 0 8px;font-size:16px">${escapeHtml(intro)}</p>
-      <p style="margin:0 0 16px;font-size:14px;color:${colours.muted}">${escapeHtml(entries)}</p>
-      <p style="margin:0 0 20px;font-size:16px">${escapeHtml(cutoff)}</p>
-      <p style="margin:0 0 20px">
-        <a href="${escapeHtml(link)}" style="display:inline-block;background:${colours.maroon};color:${colours.onMaroon};text-decoration:none;font-weight:700;padding:14px 22px;border-radius:12px">Make your pick</a>
-      </p>
-      <p style="margin:0;font-size:13px;color:${colours.muted}">${escapeHtml(footer)}</p>
-    </td></tr>
-  </table>
-</body>
-</html>`
+    const html = emailLayout({
+        title: `Week ${details.weekNumber} pick needed`,
+        anyLink: link,
+        body: [
+            paragraph(intro, { bottom: 8 }),
+            note(entries, { bottom: 16 }),
+            paragraph(cutoff, { bottom: 20 }),
+            button(link, 'Make your pick'),
+            note(footer, { bottom: 0 }),
+        ].join('\n'),
+    })
 
     return { subject, text, html }
 }
@@ -205,28 +171,17 @@ export function alertEmail(alertsPageUrl: string, lines: readonly AlertLine[]): 
         `Last Man Standing · ${brand.fundraisingLine}`,
     ].join('\n')
 
-    const html = `<!doctype html>
-<html lang="en-IE">
-<body style="margin:0;padding:24px;background:${colours.subtle};font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:${colours.text}">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:0 auto;background:${colours.surface};border-radius:16px;overflow:hidden">
-    <tr><td style="background:${colours.maroon};color:${colours.onMaroon};padding:20px 24px">
-      <div style="font-size:20px;font-weight:700">${escapeHtml(subject.replace(' · Last Man Standing', ''))}</div>
-      <div style="font-size:13px;opacity:0.9">${escapeHtml(brand.fundraisingLine)}</div>
-    </td></tr>
-    <tr><td style="padding:24px">
-      <p style="margin:0 0 12px;font-size:16px">${escapeHtml(intro)}</p>
-      <ul style="margin:0 0 20px;padding-left:20px;font-size:14px">
-        ${items.map((item) => {
-            return `<li style="margin:0 0 8px">${escapeHtml(item)}</li>`
-        }).join('\n        ')}
-      </ul>
-      <p style="margin:0">
-        <a href="${escapeHtml(alertsPageUrl)}" style="display:inline-block;background:${colours.maroon};color:${colours.onMaroon};text-decoration:none;font-weight:700;padding:14px 22px;border-radius:12px">Open the alerts</a>
-      </p>
-    </td></tr>
-  </table>
-</body>
-</html>`
+    const html = emailLayout({
+        title: subject.replace(' · Last Man Standing', ''),
+        anyLink: alertsPageUrl,
+        body: [
+            paragraph(intro, { bottom: 12 }),
+            `<ul class="ink" style="margin:0 0 20px;padding-left:20px;font-size:14px;line-height:1.5;color:${colours.text}">${items.map((item) => {
+                return `<li style="margin:0 0 8px">${escapeHtml(item)}</li>`
+            }).join('')}</ul>`,
+            button(alertsPageUrl, 'Open the alerts'),
+        ].join('\n'),
+    })
 
     return { subject, text, html }
 }
@@ -261,25 +216,16 @@ export function signUpEmail(details: SignUpDetails): EmailContent {
         `Last Man Standing · ${brand.fundraisingLine}`,
     ].join('\n')
 
-    const html = `<!doctype html>
-<html lang="en-IE">
-<body style="margin:0;padding:24px;background:${colours.subtle};font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:${colours.text}">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:0 auto;background:${colours.surface};border-radius:16px;overflow:hidden">
-    <tr><td style="background:${colours.maroon};color:${colours.onMaroon};padding:20px 24px">
-      <div style="font-size:20px;font-weight:700">New player</div>
-      <div style="font-size:13px;opacity:0.9">${escapeHtml(brand.fundraisingLine)}</div>
-    </td></tr>
-    <tr><td style="padding:24px">
-      <p style="margin:0 0 8px;font-size:16px">${escapeHtml(intro)}</p>
-      <p style="margin:0 0 4px;font-size:14px;color:${colours.muted}">${escapeHtml(paid)}</p>
-      <p style="margin:0 0 20px;font-size:14px;color:${colours.muted}">${escapeHtml(count)}</p>
-      <p style="margin:0">
-        <a href="${escapeHtml(details.entriesUrl)}" style="display:inline-block;background:${colours.maroon};color:${colours.onMaroon};text-decoration:none;font-weight:700;padding:14px 22px;border-radius:12px">Open the entries</a>
-      </p>
-    </td></tr>
-  </table>
-</body>
-</html>`
+    const html = emailLayout({
+        title: 'New player',
+        anyLink: details.entriesUrl,
+        body: [
+            paragraph(intro, { bottom: 8 }),
+            note(paid, { bottom: 4 }),
+            note(count, { bottom: 20 }),
+            button(details.entriesUrl, 'Open the entries'),
+        ].join('\n'),
+    })
 
     return { subject, text, html }
 }
@@ -293,33 +239,16 @@ export function demoInviteEmail(link: string, guestName: string): EmailContent {
 
     const text = [intro, about, '', 'Tap the link to sign in and make your pick:', link, '', footer, '', `Last Man Standing · ${brand.fundraisingLine}`].join('\n')
 
-    const html = `<!doctype html>
-<html lang="en-IE">
-<body style="margin:0;padding:24px;background:${colours.subtle};font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:${colours.text}">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:0 auto;background:${colours.surface};border-radius:16px;overflow:hidden">
-    <tr><td style="background:${colours.maroon};color:${colours.onMaroon};padding:20px 24px">
-      <div style="font-size:20px;font-weight:700">Try the demo</div>
-      <div style="font-size:13px;opacity:0.9">${escapeHtml(brand.fundraisingLine)}</div>
-    </td></tr>
-    <tr><td style="padding:24px">
-      <p style="margin:0 0 8px;font-size:16px">${escapeHtml(intro)}</p>
-      <p style="margin:0 0 20px;font-size:14px;color:${colours.muted}">${escapeHtml(about)}</p>
-      <p style="margin:0 0 20px">
-        <a href="${escapeHtml(link)}" style="display:inline-block;background:${colours.maroon};color:${colours.onMaroon};text-decoration:none;font-weight:700;padding:14px 22px;border-radius:12px">Make your pick</a>
-      </p>
-      <p style="margin:0;font-size:13px;color:${colours.muted}">${escapeHtml(footer)}</p>
-    </td></tr>
-  </table>
-</body>
-</html>`
+    const html = emailLayout({
+        title: 'Try the demo',
+        anyLink: link,
+        body: [
+            paragraph(intro, { bottom: 8 }),
+            note(about, { bottom: 20 }),
+            button(link, 'Make your pick'),
+            note(footer, { bottom: 0 }),
+        ].join('\n'),
+    })
 
     return { subject, text, html }
-}
-
-function escapeHtml(value: string): string {
-    return value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
 }

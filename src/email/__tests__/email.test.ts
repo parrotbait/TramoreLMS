@@ -2,6 +2,8 @@
 
 import { describe, expect, it } from 'vitest'
 
+import { brand, colours } from '@/theme/tokens'
+
 import { mailerFromEnv, withLogging } from '../mailer'
 import { addedEntryEmail, alertEmail, demoInviteEmail, reminderEmail, signInEmail, signUpEmail } from '../templates'
 
@@ -146,7 +148,10 @@ describe('signUpEmail', () => {
     })
 
     it('never puts the player’s email address in it', () => {
-        expect(JSON.stringify(signUpEmail(details))).not.toContain('@')
+        // The footer holds the club’s own address. No other email address may appear.
+        const withoutClub = JSON.stringify(signUpEmail(details)).replaceAll(brand.contactEmail, '')
+
+        expect(withoutClub).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.]+/)
     })
 
     it('escapes the name in the HTML', () => {
@@ -223,5 +228,30 @@ describe('mailerFromEnv', () => {
         expect(() => {
             return mailerFromEnv({ EMAIL_TRANSPORT: 'pigeon' })
         }).toThrow('Unknown EMAIL_TRANSPORT')
+    })
+})
+
+describe('the shared look', () => {
+    const email = signInEmail(link, 'signin')
+
+    it('shows the club shield from the site, on a white badge', () => {
+        expect(email.html).toContain('https://tramorelastmanstanding.vercel.app/brand/logo-shield-email.png')
+        expect(email.html).toContain('#FFFFFF')
+    })
+
+    it('says which colour schemes it supports, and has dark colours', () => {
+        expect(email.html).toContain('<meta name="color-scheme" content="light dark">')
+        expect(email.html).toContain('prefers-color-scheme: dark')
+        expect(email.html).toContain('[data-ogsc]')
+    })
+
+    it('uses the club colours, and sets every colour inline for clients that ignore the style block', () => {
+        expect(email.html).toContain(colours.maroon)
+        expect(email.html).toContain(colours.gold)
+        expect(email.html).toContain(`background:${colours.surface}`)
+    })
+
+    it('leaves out the shield, rather than break, when the link has no address', () => {
+        expect(signInEmail('not a link', 'signin').html).not.toContain('logo-shield-email')
     })
 })
