@@ -24,6 +24,10 @@ import { currentProgressionWeek } from '@/view-models/progression-week'
 
 import { TeamCrest } from './TeamCrest'
 
+/** The name column is a fixed width. The week columns share what is left. */
+const NAME_COLUMN = '10rem'
+const WEEK_COLUMN = '2.5rem'
+
 type Filter =
     | 'everyone'
     | 'stillIn'
@@ -119,13 +123,22 @@ export function ProgressionGrid({ model, highlightEntryId }: ProgressionGridProp
             </div>
 
             <div ref={scroller} className="overflow-x-auto rounded-2xl border border-line bg-surface">
-                <table className="w-full min-w-max border-separate border-spacing-0 text-sm">
+                <table
+                    className="w-full table-fixed border-separate border-spacing-0 text-sm"
+                    style={{ minWidth: `calc(${NAME_COLUMN} + ${model.weeks.length} * ${WEEK_COLUMN})` }}
+                >
+                    <colgroup>
+                        <col style={{ width: NAME_COLUMN }} />
+                        {model.weeks.map((week) => {
+                            return <col key={week.number} style={{ minWidth: WEEK_COLUMN }} />
+                        })}
+                    </colgroup>
                     <thead>
                         <tr>
                             <th
                                 scope="col"
                                 data-name-column
-                                className="sticky left-0 z-30 min-w-28 border-b border-line bg-surface px-3 py-2 text-left text-xs font-semibold text-muted"
+                                className="sticky left-0 z-30 border-b border-line bg-surface px-3 py-2 text-left text-xs font-semibold text-muted"
                             >
                                 Player
                             </th>
@@ -136,7 +149,7 @@ export function ProgressionGrid({ model, highlightEntryId }: ProgressionGridProp
                                         scope="col"
                                         data-week={week.number}
                                         title={`Week ${week.number}, PL Matchday ${week.plMatchday}`}
-                                        className="w-10 border-b border-line bg-surface px-0.5 py-2 text-center"
+                                        className="border-b border-line bg-surface px-0.5 py-2 text-center"
                                     >
                                         <span className="block text-xs font-bold">W{week.number}</span>
                                         <span className="block text-[11px] tabular-nums text-muted">
@@ -240,7 +253,7 @@ function PlayerRow({ row, weeks, isHighlighted, selection, onSelect }: {
 
     return (
         <tr>
-            <th scope="row" className={`sticky left-0 z-10 max-w-40 truncate px-3 sm:max-w-64 text-left ${nameClass}`}>
+            <th scope="row" className={`sticky left-0 z-10 truncate px-3 text-left ${nameClass}`}>
                 {row.isWinner ? '🏆 ' : ''}
                 {row.name}
                 {showYouTag
