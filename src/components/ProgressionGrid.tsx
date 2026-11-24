@@ -25,7 +25,7 @@ import { currentProgressionWeek } from '@/view-models/progression-week'
 import { TeamCrest } from './TeamCrest'
 
 /** The name column is a fixed width. The week columns share what is left. */
-const NAME_COLUMN = '10rem'
+const NAME_COLUMN = '14rem'
 const WEEK_COLUMN = '2.5rem'
 
 type Filter =
