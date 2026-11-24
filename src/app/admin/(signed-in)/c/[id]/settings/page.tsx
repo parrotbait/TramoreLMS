@@ -91,8 +91,11 @@ export default async function CompetitionSettings({ params }: SettingsProps) {
                 : (
                     <Card title="Delete">
                         <p className="text-sm text-muted">
-                            Removes a competition made by mistake, with its weeks and fixtures.
-                            It only works while there are no entries. It can’t be undone.
+                            Removes a draft, for example one you used for testing.
+                            Its weeks, fixtures, entries and picks go too.
+                            Entries paid with Stripe test payments are fine.
+                            If anyone paid real money, it can’t be deleted.
+                            It can’t be undone.
                         </p>
                         <ActionPanel label="Delete this competition">
                             <form action={deleteCompetitionAction.bind(null, id)} className="space-y-3">

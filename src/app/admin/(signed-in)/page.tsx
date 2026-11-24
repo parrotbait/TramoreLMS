@@ -49,6 +49,16 @@ export default async function AdminHomePage() {
                                                 {competition.id === takingEntries?.id
                                                     ? <span className="ml-2 rounded bg-gold px-1.5 py-0.5 text-xs font-semibold text-on-gold">Taking entries</span>
                                                     : null}
+                                                {competition.status === 'draft' && !competition.isDemo
+                                                    ? (
+                                                        <Link
+                                                            href={`/admin/c/${competition.id}/settings`}
+                                                            className="ml-2 text-xs font-semibold text-maroon underline"
+                                                        >
+                                                            Delete…
+                                                        </Link>
+                                                    )
+                                                    : null}
                                             </td>
                                             <td>PL Matchday {competition.startMatchday}</td>
                                             <td className="tabular-nums">{competition.activeEntries}</td>

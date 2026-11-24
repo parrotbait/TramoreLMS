@@ -44,6 +44,7 @@ import { openCompetitionForEntries } from '@/payments/service'
 import { gatewayFromEnv } from '@/payments/stripe'
 
 import { recordAudit, requiredReason } from './audit'
+import { deleteDraftCompetition } from './delete-competition'
 import { checkCutoffMove, isOwnEntry, parseDublinDateTime, parseEuro, parseFixtureOverride, seasonOf, withdrawalWeek } from './forms'
 import { changePersonEmail } from './people'
 import { requireAdmin } from './guard'
@@ -254,60 +255,32 @@ export async function deactivateCompetitionAction(competitionId: string, formDat
 }
 
 /**
- * Deletes a competition made by mistake. It only works on a draft with no
- * entries at all, so no player and no payment is ever lost. The weeks,
- * fixtures and teams go with it. DELETE must be typed as a confirmation.
+ * Deletes a draft, for example one made by mistake or used for testing. An empty
+ * draft always goes. A draft with entries goes only if every payment was a Stripe
+ * test payment. Real money keeps the competition. DELETE must be typed.
  */
 export async function deleteCompetitionAction(competitionId: string, formData: FormData) {
     const admin = await requireAdmin()
     requireId(competitionId)
     const page = `/admin/c/${competitionId}/settings`
-    const db = getDatabase()
-    const [before] = await db.select().from(competitions).where(eq(competitions.id, competitionId))
-    if (before === undefined) {
-        back('/admin', 'error', 'No such competition.')
-    }
-
-    if (before.isDemo) {
-        back(page, 'error', 'This is a demo. Remove it on the Demo page.')
-    }
-
-    if (before.status !== 'draft') {
-        back(page, 'error', 'Only a draft can be deleted. Deactivate it first.')
-    }
-
     if (text(formData, 'confirm') !== 'DELETE') {
         back(page, 'error', 'Type DELETE to confirm.')
     }
 
     const reason = requiredReason(formData.get('reason')) ?? 'Deleted'
-    const isDeleted = await db.transaction(async (tx) => {
-        const [entry] = await tx
-            .select({ id: entries.id })
-            .from(entries)
-            .where(eq(entries.competitionId, competitionId))
-            .limit(1)
-        if (entry !== undefined) {
-            return false
-        }
-
-        await tx.delete(competitions).where(eq(competitions.id, competitionId))
-        await recordAudit(tx, {
-            actorEmail: admin.email,
-            action: 'competition.delete',
-            targetType: 'competition',
-            targetId: competitionId,
-            before: { name: before.name, season: before.season, startMatchday: before.startMatchday },
-            reason,
-        })
-
-        return true
-    })
-    if (!isDeleted) {
-        back(page, 'error', 'This competition has entries, so it can’t be deleted. Withdraw them first, or leave it as a draft.')
+    const result = await deleteDraftCompetition(getDatabase(), competitionId, admin.email, reason)
+    switch (result.kind) {
+        case 'noCompetition':
+            back('/admin', 'error', 'No such competition.')
+        case 'demo':
+            back(page, 'error', 'This is a demo. Remove it on the Demo page.')
+        case 'notDraft':
+            back(page, 'error', 'Only a draft can be deleted. Deactivate it first.')
+        case 'realMoney':
+            back(page, 'error', `${result.paymentCount} payment${result.paymentCount === 1 ? ' was' : 's were'} real money, so this competition can’t be deleted. Withdraw and refund those entries first.`)
+        case 'deleted':
+            back('/admin', 'notice', `“${result.name}” is deleted${result.entryCount === 0 ? '' : ` with ${result.entryCount} test ${result.entryCount === 1 ? 'entry' : 'entries'}`}.`)
     }
-
-    back('/admin', 'notice', `“${before.name}” is deleted.`)
 }
 
 // ── Entries ──────────────────────────────────────────────────────────────
