@@ -708,7 +708,7 @@ describe('telling the admins about a new player', () => {
         expect(messages[0]?.text).toContain('Paid €10.00 by card.')
         expect(messages[0]?.text).toContain('1 player is in.')
         expect(messages[0]?.text).toContain(`https://lms.test/admin/c/${competitionId}/entries`)
-        expect(messages[0]?.text).not.toContain('aoife@example.ie')
+        expect(messages[0]?.text).toContain('Email: aoife@example.ie')
     })
 
     it('counts the players who are in, and sends one email for each', async () => {

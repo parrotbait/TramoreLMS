@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { brand, colours } from '@/theme/tokens'
+import { colours } from '@/theme/tokens'
 
 import { mailerFromEnv, withLogging } from '../mailer'
 import { addedEntryEmail, alertEmail, demoInviteEmail, reminderEmail, signInEmail, signUpEmail } from '../templates'
@@ -125,6 +125,7 @@ describe('addedEntryEmail', () => {
 describe('signUpEmail', () => {
     const details = {
         displayName: 'Aoife',
+        email: 'aoife@example.com',
         competitionName: 'Last Man Standing 2026/27',
         paidBy: 'card',
         amountLabel: '€10.00',
@@ -147,11 +148,19 @@ describe('signUpEmail', () => {
         expect(signUpEmail({ ...details, playerCount: 1 }).text).toContain('1 player is in.')
     })
 
-    it('never puts the player’s email address in it', () => {
-        // The footer holds the club’s own address. No other email address may appear.
-        const withoutClub = JSON.stringify(signUpEmail(details)).replaceAll(brand.contactEmail, '')
+    it('gives the player’s email, in the body but never in the subject', () => {
+        const email = signUpEmail(details)
 
-        expect(withoutClub).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.]+/)
+        expect(email.text).toContain('Email: aoife@example.com')
+        expect(email.html).toContain('aoife@example.com')
+        expect(email.subject).not.toContain('aoife@example.com')
+    })
+
+    it('escapes the email in the HTML', () => {
+        const email = signUpEmail({ ...details, email: 'a"<b>@x.com' })
+
+        expect(email.html).toContain('a&quot;&lt;b&gt;@x.com')
+        expect(email.html).not.toContain('<b>@x.com')
     })
 
     it('escapes the name in the HTML', () => {

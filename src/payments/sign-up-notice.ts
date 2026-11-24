@@ -11,7 +11,7 @@ import { and, eq, sql } from 'drizzle-orm'
 
 import { parseAdminEmails } from '@/auth/rules'
 import type { Database } from '@/db/client'
-import { competitions, entries } from '@/db/schema'
+import { competitions, entries, people } from '@/db/schema'
 import type { Mailer } from '@/email/mailer'
 import { signUpEmail } from '@/email/templates'
 import { formatEuro } from '@/lib/format'
@@ -52,12 +52,14 @@ export async function notifyAdminsOfSignUp(
         const [entry] = await db
             .select({
                 displayName: entries.displayName,
+                email: people.email,
                 competitionId: entries.competitionId,
                 competitionName: competitions.name,
                 isDemo: competitions.isDemo,
             })
             .from(entries)
             .innerJoin(competitions, eq(competitions.id, entries.competitionId))
+            .innerJoin(people, eq(people.id, entries.personId))
             .where(eq(entries.id, signUp.entryId))
         if (entry === undefined || entry.isDemo) {
             return false
@@ -72,6 +74,7 @@ export async function notifyAdminsOfSignUp(
             to: recipients.join(', '),
             ...signUpEmail({
                 displayName: entry.displayName,
+                email: entry.email,
                 competitionName: entry.competitionName,
                 paidBy: METHOD_LABELS[signUp.method],
                 amountLabel: formatEuro(signUp.amountCents),

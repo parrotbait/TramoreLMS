@@ -188,6 +188,8 @@ export function alertEmail(alertsPageUrl: string, lines: readonly AlertLine[]): 
 
 export interface SignUpDetails {
     readonly displayName: string
+    /** The player’s email, so the admins can contact them. */
+    readonly email: string
     readonly competitionName: string
     /** For example “card”, “cash” or “Revolut”. */
     readonly paidBy: string
@@ -202,11 +204,13 @@ export interface SignUpDetails {
 export function signUpEmail(details: SignUpDetails): EmailContent {
     const subject = `New player: ${details.displayName} · Last Man Standing`
     const intro = `${details.displayName} has joined ${details.competitionName}.`
+    const contact = `Email: ${details.email}`
     const paid = `Paid ${details.amountLabel} by ${details.paidBy}.`
     const count = details.playerCount === 1 ? '1 player is in.' : `${details.playerCount} players are in.`
 
     const text = [
         intro,
+        contact,
         paid,
         count,
         '',
@@ -221,6 +225,7 @@ export function signUpEmail(details: SignUpDetails): EmailContent {
         anyLink: details.entriesUrl,
         body: [
             paragraph(intro, { bottom: 8 }),
+            note(contact, { bottom: 4, breakAll: true }),
             note(paid, { bottom: 4 }),
             note(count, { bottom: 20 }),
             button(details.entriesUrl, 'Open the entries'),
