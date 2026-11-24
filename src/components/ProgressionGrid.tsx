@@ -4,8 +4,9 @@
 // The cell where a player went out is tinted. Everything else is in the
 // details line: tap or hover a crest.
 //
-// Crests keep columns narrow, so a whole season fits a laptop screen. On a
-// phone the names stay pinned and the grid opens on the latest week.
+// The grid fills the page width and the page scrolls down as normal. Only a
+// season too wide for the screen scrolls sideways. Then the names stay pinned
+// and the grid opens on the latest week.
 
 'use client'
 
@@ -117,14 +118,14 @@ export function ProgressionGrid({ model, highlightEntryId }: ProgressionGridProp
                 />
             </div>
 
-            <div ref={scroller} className="max-h-[70vh] overflow-auto rounded-2xl border border-line bg-surface">
-                <table className="border-separate border-spacing-0 text-sm">
+            <div ref={scroller} className="overflow-x-auto rounded-2xl border border-line bg-surface">
+                <table className="w-full min-w-max border-separate border-spacing-0 text-sm">
                     <thead>
                         <tr>
                             <th
                                 scope="col"
                                 data-name-column
-                                className="sticky left-0 top-0 z-30 min-w-28 border-b border-line bg-surface px-3 py-2 text-left text-xs font-semibold text-muted"
+                                className="sticky left-0 z-30 min-w-28 border-b border-line bg-surface px-3 py-2 text-left text-xs font-semibold text-muted"
                             >
                                 Player
                             </th>
@@ -135,7 +136,7 @@ export function ProgressionGrid({ model, highlightEntryId }: ProgressionGridProp
                                         scope="col"
                                         data-week={week.number}
                                         title={`Week ${week.number}, PL Matchday ${week.plMatchday}`}
-                                        className="sticky top-0 z-20 w-10 border-b border-line bg-surface px-0.5 py-2 text-center"
+                                        className="w-10 border-b border-line bg-surface px-0.5 py-2 text-center"
                                     >
                                         <span className="block text-xs font-bold">W{week.number}</span>
                                         <span className="block text-[11px] tabular-nums text-muted">
@@ -239,7 +240,7 @@ function PlayerRow({ row, weeks, isHighlighted, selection, onSelect }: {
 
     return (
         <tr>
-            <th scope="row" className={`sticky left-0 z-10 max-w-36 truncate px-3 text-left ${nameClass}`}>
+            <th scope="row" className={`sticky left-0 z-10 max-w-40 truncate px-3 sm:max-w-64 text-left ${nameClass}`}>
                 {row.isWinner ? '🏆 ' : ''}
                 {row.name}
                 {showYouTag
@@ -277,9 +278,9 @@ function Cell({ cell, label, isSelected, onSelect }: {
 }) {
     switch (cell.kind) {
         case 'empty':
-            return <span className="block h-9 w-9" aria-hidden="true" />
+            return <span className="mx-auto block h-9 w-9" aria-hidden="true" />
         case 'hidden':
-            return <span title={label} aria-label={label} className="block h-9 w-9 rounded-lg border border-dashed border-line" />
+            return <span title={label} aria-label={label} className="mx-auto block h-9 w-9 rounded-lg border border-dashed border-line" />
         case 'noPick':
         case 'pick':
             break
@@ -306,7 +307,7 @@ function Cell({ cell, label, isSelected, onSelect }: {
             onClick={onSelect}
             onMouseEnter={onSelect}
             onFocus={onSelect}
-            className={`relative flex h-9 w-9 items-center justify-center rounded-lg ${tone} ${selected}`}
+            className={`relative mx-auto flex h-9 w-9 items-center justify-center rounded-lg ${tone} ${selected}`}
         >
             {cell.kind === 'pick' && !isPass
                 ? <TeamCrest name={cell.teamName} src={cell.crestUrl} size={24} />

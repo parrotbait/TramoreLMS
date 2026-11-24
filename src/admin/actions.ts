@@ -18,6 +18,7 @@ import { getDatabase } from '@/db/client'
 import { createCompetition, replaceSchedule } from '@/db/competitions'
 import { toGameState } from '@/db/game-state'
 import { loadCompetitionRows } from '@/db/load'
+import type { Executor } from '@/db/load'
 import { planCompetition } from '@/db/plan-competition'
 import {
     alerts,
@@ -402,6 +403,8 @@ export async function changeEmailAction(entryId: string, formData: FormData) {
         action: 'person.changeEmail',
         targetType: 'person',
         targetId: entry.personId,
+        before: { clickedEntryId: entry.id, displayName: entry.displayName, competitionId: entry.competitionId },
+        after: { emailChanged: true },
         reason,
     })
     await requestSignInLink(authEnvironment(), result.email, 'signin', '/pick')
@@ -620,13 +623,39 @@ export async function removePersonAction(entryId: string, formData: FormData) {
             action: 'person.remove',
             targetType: 'person',
             targetId: entry.personId,
-            before: { entries: theirEntries.length },
-            after: { displayName: 'Removed player' },
+            before: {
+                clickedEntryId: entryId,
+                entries: await describeEntries(tx, theirEntries),
+            },
+            after: { displayName: 'Removed player', email: 'removed' },
             reason,
         })
     })
 
     back(page, 'notice', 'Their details are removed. Their picks stay in the history as “Removed player”.')
+}
+
+/** Who and where each entry is, for the audit log. It never holds an email. */
+async function describeEntries(db: Executor, rows: readonly (typeof entries.$inferSelect)[]) {
+    const names = await db
+        .select({ id: competitions.id, name: competitions.name })
+        .from(competitions)
+        .where(inArray(competitions.id, [...new Set(rows.map((row) => {
+            return row.competitionId
+        }))]))
+    const nameOf = new Map(names.map((row) => {
+        return [row.id, row.name] as const
+    }))
+
+    return rows.map((row) => {
+        return {
+            entryId: row.id,
+            displayName: row.displayName,
+            status: row.status,
+            competitionId: row.competitionId,
+            competition: nameOf.get(row.competitionId) ?? null,
+        }
+    })
 }
 
 // ── Weeks ────────────────────────────────────────────────────────────────

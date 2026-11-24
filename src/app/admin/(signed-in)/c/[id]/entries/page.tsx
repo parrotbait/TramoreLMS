@@ -91,7 +91,9 @@ export default async function EntriesPage({ params, searchParams }: EntriesProps
                                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                                     <div>
                                         <p className="font-semibold">{entry.displayName}</p>
-                                        <p className="text-sm break-all">{data.emailOf.get(entry.id)}</p>
+                                        <p className="text-sm break-all">
+                                            {isRemoved(data.emailOf.get(entry.id)) ? 'Email removed' : data.emailOf.get(entry.id)}
+                                        </p>
                                     </div>
                                     <div className="text-right text-sm">
                                         <p className="font-semibold">{statusOf(entry, data)}</p>
@@ -109,23 +111,27 @@ export default async function EntriesPage({ params, searchParams }: EntriesProps
                                                     <Submit pendingLabel="Renaming…">Rename</Submit>
                                                 </form>
                                             </ActionPanel>
-                                            <ActionPanel label="Correct their email">
-                                                <form action={changeEmailAction.bind(null, entry.id)} className="space-y-2">
-                                                    <p className="text-xs text-muted">
-                                                        For a typo. It changes for all of their entries.
-                                                        We send them a sign-in link at the new address.
-                                                    </p>
-                                                    <Field
-                                                        label="Right email"
-                                                        name="email"
-                                                        type="email"
-                                                        defaultValue={data.emailOf.get(entry.id) ?? ''}
-                                                        required
-                                                    />
-                                                    <ReasonField />
-                                                    <Submit pendingLabel="Correcting…">Correct the email</Submit>
-                                                </form>
-                                            </ActionPanel>
+                                            {isRemoved(data.emailOf.get(entry.id))
+                                                ? null
+                                                : (
+                                                    <ActionPanel label="Correct their email">
+                                                        <form action={changeEmailAction.bind(null, entry.id)} className="space-y-2">
+                                                            <p className="text-xs text-muted">
+                                                                For a typo. It changes for all of their entries.
+                                                                We send them a sign-in link at the new address.
+                                                            </p>
+                                                            <Field
+                                                                label="Right email"
+                                                                name="email"
+                                                                type="email"
+                                                                defaultValue={data.emailOf.get(entry.id) ?? ''}
+                                                                required
+                                                            />
+                                                            <ReasonField />
+                                                            <Submit pendingLabel="Correcting…">Correct the email</Submit>
+                                                        </form>
+                                                    </ActionPanel>
+                                                )}
                                             <ActionPanel label={isBeforeWeekOne ? 'Withdraw or refund' : 'Withdraw'}>
                                                 <form action={withdrawEntryAction.bind(null, entry.id)} className="space-y-2">
                                                     {isBeforeWeekOne
@@ -178,6 +184,11 @@ export default async function EntriesPage({ params, searchParams }: EntriesProps
             </Card>
         </>
     )
+}
+
+/** A person whose email was removed (on request, or by the 90-day clean-up) has a placeholder address. */
+function isRemoved(email: string | undefined): boolean {
+    return email?.endsWith('@removed.invalid') ?? false
 }
 
 function statusOf(entry: AdminCompetition['rows']['entries'][number], data: AdminCompetition): string {
