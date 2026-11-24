@@ -185,7 +185,13 @@ export async function setEntriesOpenAction(competitionId: string, open: boolean)
         }
     }
 
-    const status = open && before.status === 'draft' ? 'open' : before.status
+    // A draft becomes open. So does a competition wrongly marked finished before
+    // it had any players, which an earlier version of the tick did.
+    const anyEntry = open && before.status === 'finished'
+        ? await db.select({ id: entries.id }).from(entries).where(eq(entries.competitionId, competitionId)).limit(1)
+        : []
+    const hasNoEntries = open && before.status === 'finished' && anyEntry.length === 0
+    const status = open && (before.status === 'draft' || hasNoEntries) ? 'open' : before.status
     await db.transaction(async (tx) => {
         await tx.update(competitions).set({ entriesOpen: open, status }).where(eq(competitions.id, competitionId))
         await recordAudit(tx, {

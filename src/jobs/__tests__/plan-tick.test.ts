@@ -307,6 +307,21 @@ describe('planTick: settling and status', () => {
         })
         expect(tick(won, afterWeek(2)).status).toBe('finished')
     })
+
+    describe('with nobody entered', () => {
+        const empty = buildState({
+            weeks: [{ fixtures: [['Arsenal', 'Chelsea'], ['Everton', 'Fulham']] }],
+            entries: [],
+        })
+
+        it('keeps an open competition open before the Week 1 cut-off, so the first player can still enter', () => {
+            expect(tick(empty, beforeCutoff(1), 'open').status).toBe('open')
+        })
+
+        it('finishes it once the game has started with nobody in it', () => {
+            expect(tick(empty, cutoffOf(1), 'open').status).toBe('finished')
+        })
+    })
 })
 
 describe('planTick: auto-pass alerts', () => {

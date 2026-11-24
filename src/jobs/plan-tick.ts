@@ -193,14 +193,18 @@ function nextOpening(input: TickInput, alerts: TickAlert[]): WeekOpening | null 
 }
 
 function nextStatus(input: TickInput, state: GameState, outcome: CompetitionOutcome['kind']): CompetitionStatus {
-    if (outcome === 'won' || outcome === 'noPlayers') {
-        return 'finished'
-    }
-
     const weekOneCutoff = state.weeks.find((week) => {
         return week.number === 1
     })?.cutoffAt ?? null
     const hasStarted = weekOneCutoff !== null && input.now.getTime() >= weekOneCutoff.getTime()
+
+    // A won game is over. “No players” only ends the game once it has started.
+    // Before the Week 1 cut-off nobody has entered yet, and finishing then
+    // would close entries on a competition that is still waiting for its first player.
+    if (outcome === 'won' || (outcome === 'noPlayers' && hasStarted)) {
+        return 'finished'
+    }
+
     if (input.status === 'open' && hasStarted) {
         return 'running'
     }
