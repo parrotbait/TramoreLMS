@@ -15,7 +15,7 @@ export async function requestLinkAction(formData: FormData) {
     const next = optionalString(formData.get('next'))
     const page = purpose === 'admin' ? '/admin/signin' : '/signin'
 
-    const result = await requestSignInLink(authEnvironment(), email, purpose, next)
+    const result = await requestSignInLink(await authEnvironment(), email, purpose, next)
     if (result.kind === 'invalidEmail') {
         redirect(`${page}?error=email`)
     }
@@ -27,7 +27,7 @@ export async function verifyLinkAction(formData: FormData) {
     const token = String(formData.get('token') ?? '')
     const next = optionalString(formData.get('next'))
 
-    const result = await verifySignInLink(authEnvironment(), token, next)
+    const result = await verifySignInLink(await authEnvironment(), token, next)
     if (result.kind === 'invalid') {
         redirect('/auth/verify?error=invalid')
     }
@@ -39,7 +39,7 @@ export async function verifyLinkAction(formData: FormData) {
 export async function signOutAction() {
     const value = await sessionCookieValue()
     if (value !== undefined) {
-        await deleteSession(authEnvironment().db, value)
+        await deleteSession((await authEnvironment()).db, value)
     }
 
     await clearSessionCookie()

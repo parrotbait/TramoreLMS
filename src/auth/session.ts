@@ -4,13 +4,14 @@
 // Admin rights are checked against ADMIN_EMAILS on every request, so
 // removing an address from the list takes effect at once (Decision 10).
 
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 
 import { getDatabase } from '@/db/client'
 import { mailerFromEnv } from '@/email/mailer'
 
 import type { AuthEnvironment } from './flows'
 import { normaliseSiteUrl, parseAdminEmails } from './rules'
+import { resolveSiteUrl } from './site-host'
 import { findSession } from './store'
 
 export const SESSION_COOKIE = 'lms_session'
@@ -54,14 +55,34 @@ export async function sessionCookieValue(): Promise<string | undefined> {
     return (await cookies()).get(SESSION_COOKIE)?.value
 }
 
-export function authEnvironment(): AuthEnvironment {
+export async function authEnvironment(): Promise<AuthEnvironment> {
     return {
         db: getDatabase(),
         mailer: mailerFromEnv(),
         now: new Date(),
-        siteUrl: siteUrl(),
+        siteUrl: await requestSiteUrl(),
         adminEmails: process.env['ADMIN_EMAILS'],
     }
+}
+
+/**
+ * The address this request came in on, if it is one of ours (see site-host.ts),
+ * so links and Stripe returns stay on the address the player started on.
+ * Otherwise siteUrl().
+ */
+export async function requestSiteUrl(): Promise<string> {
+    const incoming = await headers()
+    return hostedSiteUrl(incoming.get('x-forwarded-host') ?? incoming.get('host'))
+}
+
+/** The same, for a route that has its host in hand. */
+export function hostedSiteUrl(host: string | null): string {
+    return resolveSiteUrl({
+        host,
+        canonical: siteUrl(),
+        aliases: process.env['SITE_ALIASES'],
+        vercelProduction: process.env['VERCEL_PROJECT_PRODUCTION_URL'],
+    })
 }
 
 /** SITE_URL, or Vercel's production address, or localhost in development. */

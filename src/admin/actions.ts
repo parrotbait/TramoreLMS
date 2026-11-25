@@ -413,7 +413,7 @@ export async function changeEmailAction(entryId: string, formData: FormData) {
         after: { emailChanged: true },
         reason,
     })
-    await requestSignInLink(authEnvironment(), result.email, 'signin', '/pick')
+    await requestSignInLink(await authEnvironment(), result.email, 'signin', '/pick')
 
     back(page, 'notice', `Email corrected. We sent “${entry.displayName}” a sign-in link at the new address.`)
 }

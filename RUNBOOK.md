@@ -45,6 +45,7 @@ Set these in Vercel, under Project → Settings → Environment Variables, for P
 |---|---|
 | `POSTGRES_URL` | The Neon connection string. The Neon integration sets it. |
 | `SITE_URL` | `https://tramorelastmanstanding.vercel.app`. Used in emails and WhatsApp text. |
+| `SITE_ALIASES` | Other addresses for the same site, comma-separated, for example `tramorelastmanstanding.ie`. A player who starts on one of these stays on it through payment and sign-in. Without it, they are sent back to `SITE_URL`, and the sign-in after payment fails because the cookie belongs to the other address. |
 | `ADMIN_EMAILS` | Admin addresses, separated by commas. Checked on every admin request. A change takes effect at once. These addresses also get an email for each alert, and a “New player” email each time a player joins and has paid (online, or added by hand). |
 | `CRON_SECRET` | At least 32 characters. cron-job.org and Vercel Cron send it as `Authorization: Bearer …`. Make one with `openssl rand -hex 32`. |
 | `FOOTBALL_DATA_TOKEN` | The football-data.org API token. |

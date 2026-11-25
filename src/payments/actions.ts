@@ -35,7 +35,7 @@ export async function startEntryAction(_previous: EntryFormState, formData: Form
 
     let checkout: CheckoutStart
     try {
-        const result = await startEntry(paymentEnvironment(), values)
+        const result = await startEntry(await paymentEnvironment(), values)
         switch (result.kind) {
             case 'invalid':
                 return { values, errors: result.errors, problem: null }
@@ -68,7 +68,7 @@ export async function payAction(formData: FormData) {
 
     const db = getDatabase()
     await db.update(entries).set({ holdExpiresAt: holdExpiresAt(new Date()) }).where(eq(entries.id, entry.id))
-    await goToCheckout(await beginCheckout(paymentEnvironment(), entry.id, 'entry'))
+    await goToCheckout(await beginCheckout(await paymentEnvironment(), entry.id, 'entry'))
 }
 
 /** The buy-back button, for Week 1 losers until the Week 2 cut-off (rule 3). */
@@ -92,7 +92,7 @@ export async function buyBackAction(formData: FormData) {
         redirect('/pick')
     }
 
-    await goToCheckout(await beginCheckout(paymentEnvironment(), entry.id, 'buyback'))
+    await goToCheckout(await beginCheckout(await paymentEnvironment(), entry.id, 'buyback'))
 }
 
 /** The entry, if it belongs to the signed-in person. */

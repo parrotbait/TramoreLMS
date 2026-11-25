@@ -14,7 +14,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 import { sessionCookieExpiresAt, sessionExpiresAt } from '@/auth/rules'
-import { setSessionCookie, siteUrl } from '@/auth/session'
+import { hostedSiteUrl, setSessionCookie } from '@/auth/session'
 import { createSession } from '@/auth/store'
 import { getDatabase } from '@/db/client'
 import { mailerFromEnv } from '@/email/mailer'
@@ -41,7 +41,7 @@ export async function GET(request: Request): Promise<never> {
             gateway: gatewayFromEnv(),
             mailer: mailerFromEnv(),
             now,
-            siteUrl: siteUrl(),
+            siteUrl: hostedSiteUrl(request.headers.get('x-forwarded-host') ?? request.headers.get('host')),
             adminEmails: process.env['ADMIN_EMAILS'],
         }
         await reconcileCheckout(environment, sessionId)

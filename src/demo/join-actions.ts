@@ -32,7 +32,7 @@ export async function joinDemoAction(
 
     let checkout: CheckoutStart
     try {
-        const result = await startEntry(paymentEnvironment(), values, { demoCompetitionId: demo.id })
+        const result = await startEntry(await paymentEnvironment(), values, { demoCompetitionId: demo.id })
         switch (result.kind) {
             case 'invalid':
                 return { values, errors: result.errors, problem: null }

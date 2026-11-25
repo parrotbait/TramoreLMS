@@ -7,7 +7,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
-import { siteUrl } from '@/auth/session'
+import { requestSiteUrl } from '@/auth/session'
 import { getDatabase } from '@/db/client'
 import { mailerFromEnv } from '@/email/mailer'
 
@@ -30,13 +30,13 @@ export async function goToCheckout(checkout: CheckoutStart): Promise<never> {
     redirect(checkout.url)
 }
 
-export function paymentEnvironment(): PaymentEnvironment {
+export async function paymentEnvironment(): Promise<PaymentEnvironment> {
     return {
         db: getDatabase(),
         gateway: gatewayFromEnv(),
         mailer: mailerFromEnv(),
         now: new Date(),
-        siteUrl: siteUrl(),
+        siteUrl: await requestSiteUrl(),
         adminEmails: process.env['ADMIN_EMAILS'],
     }
 }

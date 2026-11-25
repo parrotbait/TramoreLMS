@@ -21,7 +21,8 @@
         "db:studio": "drizzle-kit studio",
         "db:seed": "node --import tsx scripts/seed.ts",
         "tick": "node --import tsx scripts/tick.ts",
-        "dev:add-player": "node --import tsx scripts/add-player.ts"
+        "dev:add-player": "node --import tsx scripts/add-player.ts",
+    "wipe-players": "node --import tsx scripts/wipe-players.ts"
     },
     "dependencies": {
         "@vercel/blob": "^2.9.0",
