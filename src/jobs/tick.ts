@@ -17,6 +17,7 @@ import { activeCompetitionIds, loadCompetitionRows } from '@/db/load'
 import type { Executor } from '@/db/load'
 import { alerts, competitions, fixtures, picks, weeks } from '@/db/schema'
 import type { FixtureChange } from '@/feeds/sync'
+import { auditSchedule, isScheduleCheckDue } from '@/feeds/schedule-audit'
 import { syncFixtures } from '@/feeds/sync'
 import { competitionNow } from '@/demo/clock'
 import type { FeedMatch } from '@/feeds/types'
@@ -139,6 +140,28 @@ async function tickCompetition(
 
             if (fixtureChanges > 0) {
                 rows = await loadCompetitionRows(tx, competitionId)
+            }
+
+            // Now and then, check the whole list against the season (see schedule-audit.ts).
+            if (isScheduleCheckDue(now)) {
+                const audit = auditSchedule({
+                    fixtures: rows.fixtures.map((row) => {
+                        return {
+                            externalId: row.externalId,
+                            weekNumber: weekNumberOf(rows, row.weekId),
+                            homeTeamId: row.homeTeamId,
+                            awayTeamId: row.awayTeamId,
+                        }
+                    }),
+                    weeks: rows.weeks.map((week) => {
+                        return { number: week.number, plMatchday: week.plMatchday, isSettled: week.settledAt !== null }
+                    }),
+                    teams: rows.teams,
+                    feed: fetched.primary,
+                })
+                newAlerts += await insertAlerts(tx, competitionId, audit.map((alert) => {
+                    return { kind: alert.kind, key: alert.key, fixtureId: null, message: alert.message }
+                }))
             }
         }
 
@@ -301,6 +324,12 @@ async function insertAlerts(tx: Executor, competitionId: string, rows: readonly 
         .returning({ id: alerts.id })
 
     return inserted.length
+}
+
+function weekNumberOf(rows: Awaited<ReturnType<typeof loadCompetitionRows>>, weekId: string): number {
+    return rows.weeks.find((week) => {
+        return week.id === weekId
+    })?.number ?? 0
 }
 
 function alertNamesOf(rows: Awaited<ReturnType<typeof loadCompetitionRows>>): AlertNames {

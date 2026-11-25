@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { FeedMatch } from '@/feeds/types'
 
-import { planCompetition } from '../plan-competition'
+import { describeScheduleProblems, planCompetition, scheduleProblems } from '../plan-competition'
 
 function match(externalId: number, matchday: number, home: string, away: string, kickoff: string): FeedMatch {
     return {
@@ -51,5 +51,46 @@ describe('planCompetition', () => {
         expect(() => {
             return planCompetition(season, 39)
         }).toThrow('between 1 and 38')
+    })
+})
+
+describe('scheduleProblems', () => {
+    // Four teams, two weeks. Everyone plays once in each.
+    const full = [
+        match(1, 11, 'Arsenal', 'Chelsea', '2026-11-21T15:00:00Z'),
+        match(2, 11, 'Everton', 'Fulham', '2026-11-21T15:00:00Z'),
+        match(3, 12, 'Arsenal', 'Everton', '2026-11-28T15:00:00Z'),
+        match(4, 12, 'Chelsea', 'Fulham', '2026-11-28T15:00:00Z'),
+    ]
+
+    it('finds none when every team plays once in every week', () => {
+        expect(scheduleProblems(planCompetition(full, 11, 12))).toEqual([])
+    })
+
+    it('names a team with no game, and says which matchday', () => {
+        const withoutOne = full.filter((match) => {
+            return match.externalId !== 4
+        })
+
+        expect(scheduleProblems(planCompetition(withoutOne, 11, 12))).toEqual([
+            'PL Matchday 12: Chelsea has no game.',
+            'PL Matchday 12: Fulham has no game.',
+        ])
+    })
+
+    it('finds a team that plays twice in one week', () => {
+        const extra = match(9, 11, 'Arsenal', 'Fulham', '2026-11-22T15:00:00Z')
+
+        expect(scheduleProblems(planCompetition([...full, extra], 11, 12))).toEqual([
+            'PL Matchday 11: Arsenal plays 2 games.',
+            'PL Matchday 11: Fulham plays 2 games.',
+        ])
+    })
+
+    it('keeps the message short', () => {
+        const message = describeScheduleProblems(['a.', 'b.', 'c.', 'd.', 'e.'])
+
+        expect(message).toContain('a. b. c.')
+        expect(message).toContain('(and 2 more)')
     })
 })

@@ -94,6 +94,8 @@ The tick and the payment code write alerts to Admin → Alerts. The next tick em
 | Results overdue | Some games have no result 4 hours after kick-off, whatever the reason: a feed problem, a mismatch, or a team-name mapping. | Check the feeds. Set the results by hand on the Week page with a fixture override. |
 | Week blocked | Nobody can pick for the next week until this one settles, a result is held, and the next cut-off is within 24 hours. | Settle the held results on the Week page, or move the next cut-off. If you do nothing, everyone is auto-picked after the cut-off. |
 | Called off after the cut-off | A game was called off and we first saw it after the cut-off. Everyone who picked it is through. | Check the game was really called off before the cut-off. If it was, this may not be fair to others. |
+| Game missing from our list | The feed has a game we don’t have. Raised every 6 hours until fixed. | Check the week’s fixtures against the Premier League site. |
+| Team has no game, or two | A team has no game, or two, in a week still to play. | Same. A team with no game can’t be picked that week. |
 | Called-off game looks back on | A game marked as called off is back in the feed at about its first time. A call-off is never undone by itself. | Check whether it is being played. Use a fixture override to set the result. |
 | Admin changed their own entry | An admin who also plays set their own result, withdrew, or recorded a buy-back for their own entry. It is allowed, and everyone is told. | Check it is right. |
 | Payment: renamed | A player paid after their name hold ran out, and someone else had taken the name. They got a new name. | Rename them on the Entries page if needed. |

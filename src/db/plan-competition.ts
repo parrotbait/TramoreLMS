@@ -76,3 +76,48 @@ export function planCompetition(
         fixtures,
     }
 }
+
+/**
+ * Checks that every team plays exactly once in every week. The rules depend on
+ * it: a team that has no game in a week cannot be picked, and a team with two
+ * games would count twice. Returns one plain sentence per problem, or an empty
+ * list when the schedule is right.
+ */
+export function scheduleProblems(plan: CompetitionPlan): readonly string[] {
+    const nameOf = new Map(plan.teams.map((team) => {
+        return [team.slug, team.fullName] as const
+    }))
+    const problems: string[] = []
+
+    for (const week of plan.weeks) {
+        const counts = new Map<string, number>()
+        for (const fixture of plan.fixtures) {
+            if (fixture.weekNumber !== week.number) {
+                continue
+            }
+
+            for (const side of [fixture.homeSlug, fixture.awaySlug]) {
+                counts.set(side, (counts.get(side) ?? 0) + 1)
+            }
+        }
+
+        const label = `PL Matchday ${week.plMatchday}`
+        for (const team of plan.teams) {
+            const games = counts.get(team.slug) ?? 0
+            if (games === 0) {
+                problems.push(`${label}: ${nameOf.get(team.slug) ?? team.slug} has no game.`)
+            } else if (games > 1) {
+                problems.push(`${label}: ${nameOf.get(team.slug) ?? team.slug} plays ${games} games.`)
+            }
+        }
+    }
+
+    return problems
+}
+
+/** A short message for the admin, for example “PL Matchday 22: Leeds has no game. (and 2 more)”. */
+export function describeScheduleProblems(problems: readonly string[]): string {
+    const shown = problems.slice(0, 3).join(' ')
+    const more = problems.length > 3 ? ` (and ${problems.length - 3} more)` : ''
+    return `The fixture list is wrong, so the competition was not saved. ${shown}${more}`
+}

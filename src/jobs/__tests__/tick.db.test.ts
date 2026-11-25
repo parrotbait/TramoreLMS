@@ -7,7 +7,7 @@
 import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
-import { competitions, fixtures, weeks } from '@/db/schema'
+import { alerts, competitions, fixtures, weeks } from '@/db/schema'
 import type { FeedMatch } from '@/feeds/types'
 import { reconcileCheckout, reconcilePendingCheckouts, RECONCILE_BATCH } from '@/payments/service'
 
@@ -227,5 +227,183 @@ describe('checking payments', () => {
 
         expect(report.confirmed).toBe(0)
         expect(gateway.retrievals).toEqual([])
+    })
+})
+
+describe('the periodic fixture check', () => {
+    // 12:00 UTC is the first tick of a 6-hour window. 10:00 is not.
+    const checking = new Date('2026-11-20T12:00:00Z')
+
+    /** The feed as it would send the two seeded weeks, plus whatever extra the test adds. */
+    async function seasonFeed(extra: readonly FeedMatch[] = []): Promise<readonly FeedMatch[]> {
+        const rows = await database.db.select().from(fixtures)
+        const teamOf = ['Arsenal', 'Chelsea', 'Everton', 'Fulham', 'Arsenal', 'Everton', 'Chelsea', 'Fulham']
+        const matches = rows.map((fixture, index) => {
+            return {
+                externalId: fixture.externalId,
+                matchday: index < 2 ? 11 : 12,
+                kickoffAt: fixture.kickoffAt,
+                status: 'scheduled',
+                home: { name: teamOf[index * 2] ?? 'Arsenal', crestUrl: null },
+                away: { name: teamOf[index * 2 + 1] ?? 'Chelsea', crestUrl: null },
+                score: null,
+            } satisfies FeedMatch
+        })
+
+        return [...matches, ...extra]
+    }
+
+    function feedsOf(primary: readonly FeedMatch[]): FeedSource {
+        return {
+            primary: async () => {
+                return primary
+            },
+            secondary: async () => {
+                return []
+            },
+        }
+    }
+
+    const gameWeDoNotHave: FeedMatch = {
+        externalId: 99_001,
+        matchday: 12,
+        kickoffAt: new Date('2026-11-28T15:00:00Z'),
+        status: 'scheduled',
+        home: { name: 'Arsenal', crestUrl: null },
+        away: { name: 'Fulham', crestUrl: null },
+        score: null,
+    }
+
+    it('raises a game that is in the feed but not in our list, once, and not again on the next check', async () => {
+        await seedCompetition(database.db)
+        const feeds = feedsOf(await seasonFeed([gameWeDoNotHave]))
+
+        await runTick(database.db, checking, feeds)
+        await runTick(database.db, new Date(checking.getTime() + 6 * 60 * 60 * 1000), feeds)
+
+        const rows = await database.db.select().from(alerts).where(eq(alerts.kind, 'scheduleGameAdded'))
+        expect(rows).toHaveLength(1)
+        expect(rows[0]?.message).toContain('Arsenal v Fulham')
+    })
+
+    it('does not run on the other ticks', async () => {
+        await seedCompetition(database.db)
+        const feeds = feedsOf(await seasonFeed([gameWeDoNotHave]))
+
+        await runTick(database.db, ticking, feeds)
+
+        expect(await database.db.select().from(alerts).where(eq(alerts.kind, 'scheduleGameAdded'))).toEqual([])
+    })
+
+    it('raises nothing for a complete list', async () => {
+        await seedCompetition(database.db)
+
+        await runTick(database.db, checking, feedsOf(await seasonFeed()))
+
+        const rows = await database.db.select().from(alerts)
+        expect(rows.filter((row) => {
+            return row.kind.startsWith('schedule')
+        })).toEqual([])
+    })
+})
+
+describe('a game that is moved to another day', () => {
+    // The seeded Week 1 has two games on Saturday 21 Nov at 15:00. The feed moves them.
+    const SUNDAY = new Date('2026-11-22T15:00:00Z')
+    const FRIDAY = new Date('2026-11-20T19:00:00Z')
+
+    /** The feed, with these games at new times. The rest are as stored. */
+    async function movedFeed(moves: ReadonlyMap<number, Date>): Promise<FeedSource> {
+        const rows = await database.db.select().from(fixtures)
+        const teamOf = ['Arsenal', 'Chelsea', 'Everton', 'Fulham', 'Arsenal', 'Everton', 'Chelsea', 'Fulham']
+        const matches = rows.map((fixture, index) => {
+            return {
+                externalId: fixture.externalId,
+                matchday: index < 2 ? 11 : 12,
+                kickoffAt: moves.get(fixture.externalId) ?? fixture.kickoffAt,
+                status: 'scheduled',
+                home: { name: teamOf[index * 2] ?? 'Arsenal', crestUrl: null },
+                away: { name: teamOf[index * 2 + 1] ?? 'Chelsea', crestUrl: null },
+                score: null,
+            } satisfies FeedMatch
+        })
+
+        return {
+            primary: async () => {
+                return matches
+            },
+            secondary: async () => {
+                return []
+            },
+        }
+    }
+
+    async function weekOne() {
+        const [week] = await database.db.select().from(weeks).where(eq(weeks.number, 1))
+        return week
+    }
+
+    async function kickoffsOf(externalIds: readonly number[]) {
+        const rows = await database.db.select().from(fixtures)
+        return rows.filter((row) => {
+            return externalIds.includes(row.externalId)
+        }).map((row) => {
+            return row.kickoffAt.toISOString()
+        })
+    }
+
+    async function weekOneExternalIds() {
+        const rows = await database.db.select().from(fixtures)
+        return rows.slice(0, 2).map((row) => {
+            return row.externalId
+        })
+    }
+
+    it('saves the new day, and the cut-off follows when the week has not opened yet', async () => {
+        await seedCompetition(database.db)
+        const ids = await weekOneExternalIds()
+        const moves = new Map(ids.map((id) => {
+            return [id, SUNDAY] as const
+        }))
+
+        await runTick(database.db, ticking, await movedFeed(moves))
+
+        expect(await kickoffsOf(ids)).toEqual(ids.map(() => {
+            return SUNDAY.toISOString()
+        }))
+        const cutoff = (await weekOne())?.cutoffAt
+        expect(cutoff?.toISOString().slice(0, 10)).toBe('2026-11-22')
+    })
+
+    it('saves the new day but keeps the cut-off, once the week has opened', async () => {
+        await seedCompetition(database.db)
+        const ids = await weekOneExternalIds()
+        await runTick(database.db, ticking, await movedFeed(new Map()))
+        const fixedCutoff = (await weekOne())?.cutoffAt
+        expect(fixedCutoff).toBeInstanceOf(Date)
+
+        const later = new Date(ticking.getTime() + 10 * 60 * 1000)
+        await runTick(database.db, later, await movedFeed(new Map(ids.map((id) => {
+            return [id, SUNDAY] as const
+        }))))
+
+        expect(await kickoffsOf(ids)).toEqual(ids.map(() => {
+            return SUNDAY.toISOString()
+        }))
+        expect((await weekOne())?.cutoffAt?.toISOString()).toBe(fixedCutoff?.toISOString())
+        expect(await database.db.select().from(alerts).where(eq(alerts.kind, 'kickoffBeforeCutoff'))).toEqual([])
+    })
+
+    it('raises an alert when a game moves to before the fixed cut-off', async () => {
+        await seedCompetition(database.db)
+        const ids = await weekOneExternalIds()
+        await runTick(database.db, ticking, await movedFeed(new Map()))
+
+        const later = new Date(ticking.getTime() + 10 * 60 * 1000)
+        await runTick(database.db, later, await movedFeed(new Map([[ids[0] ?? 0, FRIDAY]])))
+
+        expect(await kickoffsOf(ids.slice(0, 1))).toEqual([FRIDAY.toISOString()])
+        const rows = await database.db.select().from(alerts).where(eq(alerts.kind, 'kickoffBeforeCutoff'))
+        expect(rows).toHaveLength(1)
     })
 })

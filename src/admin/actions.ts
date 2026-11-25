@@ -19,7 +19,7 @@ import { createCompetition, replaceSchedule } from '@/db/competitions'
 import { toGameState } from '@/db/game-state'
 import { loadCompetitionRows } from '@/db/load'
 import type { Executor } from '@/db/load'
-import { planCompetition } from '@/db/plan-competition'
+import { describeScheduleProblems, planCompetition, scheduleProblems } from '@/db/plan-competition'
 import {
     alerts,
     competitions,
@@ -81,6 +81,11 @@ export async function createCompetitionAction(formData: FormData) {
     }
 
     const plan = planCompetition(await fetchFootballData(token, season), startMatchday)
+    const problems = scheduleProblems(plan)
+    if (problems.length > 0) {
+        back('/admin', 'error', describeScheduleProblems(problems))
+    }
+
     const db = getDatabase()
     const competitionId = await createCompetition(db, {
         name,
@@ -140,6 +145,10 @@ export async function updateCompetitionAction(competitionId: string, formData: F
     const plan = isStartChanged
         ? planCompetition(await fetchFootballData(process.env['FOOTBALL_DATA_TOKEN'] ?? '', before.season), startMatchday)
         : null
+    const problems = plan === null ? [] : scheduleProblems(plan)
+    if (problems.length > 0) {
+        back(`/admin/c/${competitionId}/settings`, 'error', describeScheduleProblems(problems))
+    }
 
     await db.transaction(async (tx) => {
         await tx.update(competitions)
